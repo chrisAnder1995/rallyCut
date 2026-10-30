@@ -1,0 +1,9 @@
+# dados e vídeos gerados pelo app
+dados/
+*.mp4
+*.mov
+
+# ambiente Python
+.venv/
+__pycache__/
+*.pyc

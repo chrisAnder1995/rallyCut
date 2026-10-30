@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RallyCut</title>
+<style>
+  :root{
+    --bg:#f6f1e7; --card:#fffdf8; --ink:#1d2a33; --muted:#6b7780; --line:#e6dccb;
+    --sea:#0f6e8c; --sea-2:#0a5670; --sand:#e8b04b; --coral:#e2574c; --ok:#2f9e6a;
+    --rally:rgba(15,110,140,.85); --rally-off:rgba(107,119,128,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:12px;padding:18px 28px;border-bottom:1px solid var(--line);background:var(--card)}
+  header h1{margin:0;font-size:20px;letter-spacing:-.01em}
+  header h1 span{color:var(--sea)}
+  .logo{width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff 0 18%,var(--sand) 19% 55%,var(--sea) 56%)}
+  main{max-width:1180px;margin:0 auto;padding:24px 20px 60px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:20px}
+  h2{font-size:16px;margin:0 0 12px}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:34px;text-align:center;cursor:pointer;transition:.15s}
+  .drop.over,.drop:hover{border-color:var(--sea);background:#eef6f8}
+  .drop strong{color:var(--sea)}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  input[type=text],input[type=number]{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;background:#fff}
+  input[type=text]{flex:1;min-width:240px}
+  input[type=number]{width:88px}
+  button{border:0;border-radius:8px;padding:9px 16px;font:inherit;font-weight:600;cursor:pointer;background:var(--sea);color:#fff}
+  button:hover{background:var(--sea-2)}
+  button.ghost{background:transparent;color:var(--sea);border:1px solid var(--line)}
+  button.ghost:hover{background:#eef6f8}
+  button.danger{background:transparent;color:var(--coral);border:1px solid var(--line)}
+  button:disabled{opacity:.5;cursor:default}
+  .or{color:var(--muted);font-size:13px;margin:14px 0 8px}
+  .bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden}
+  .bar>i{display:block;height:100%;background:var(--sea);width:0;transition:width .3s}
+  table{width:100%;border-collapse:collapse}
+  td,th{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+  .tag{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;background:var(--line)}
+  .tag.revisao{background:#fdf0d5;color:#8a5a00}.tag.concluido{background:#dcf2e6;color:var(--ok)}
+  .tag.erro{background:#fbe1de;color:var(--coral)}.tag.analisando,.tag.exportando,.tag.na_fila{background:#dceef3;color:var(--sea)}
+  .muted{color:var(--muted)}
+  #review{display:none}
+  .grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);gap:20px}
+  @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  video{width:100%;border-radius:10px;background:#000;display:block}
+  #tl{width:100%;height:92px;display:block;margin-top:12px;cursor:pointer;border-radius:8px;background:#fff;border:1px solid var(--line)}
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:6px}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px}
+  #segs{max-height:520px;overflow:auto}
+  #segs button{padding:6px 9px}
+  #segs input[type=number]{width:72px}
+  #segs td{padding:8px 4px}
+  #segs tr.off td{opacity:.45}
+  #segs tr.now td{background:#eef6f8}
+  .stats{display:flex;gap:22px;margin:4px 0 14px;flex-wrap:wrap}
+  .stats b{display:block;font-size:22px}
+  .stats span{font-size:12px;color:var(--muted)}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .hint{font-size:13px;color:var(--muted)}
+  #stage{background:#000;border-radius:10px;overflow:hidden;margin:0 auto;max-width:100%}
+  #stage video{border-radius:0;width:100%;height:100%}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{background:#fff;color:var(--ink);border-radius:0;font-weight:500;padding:7px 14px;border-right:1px solid var(--line)}
+  .seg button:last-child{border-right:0}
+  .seg button.on{background:var(--sea);color:#fff}
+  .audio{margin-top:16px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:#fff}
+  .audio h3{margin:0 0 10px;font-size:14px}
+  .audio input[type=range]{flex:1;accent-color:var(--sea)}
+  button.mini{padding:4px 10px}
+  #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;display:none}
+</style>
+</head>
+<body>
+<header><div class="logo"></div><h1>Rally<span>Cut</span></h1><span class="muted">— deixa só os rallys do seu treino</span></header>
+<main>
+  <section class="card" id="novo">
+    <h2>Novo vídeo</h2>
+    <div class="drop" id="drop">
+      <div><strong>Arraste o vídeo aqui</strong> ou clique para escolher</div>
+      <div class="hint">MP4/MOV do celular, até vários GB</div>
+      <input type="file" id="file" accept="video/*" hidden>
+    </div>
+    <div id="up" style="display:none;margin-top:14px">
+      <div class="row" style="justify-content:space-between"><span id="upname"></span><span id="uppct" class="muted"></span></div>
+      <div class="bar"><i id="upbar"></i></div>
+    </div>
+    <div class="or">ou, para não copiar o arquivo, cole o caminho do vídeo no computador:</div>
+    <div class="row">
+      <input type="text" id="caminho" placeholder="C:\Users\...\Videos\treino.mp4">
+      <button id="btnCaminho">Processar</button>
+    </div>
+  </section>
+
+  <section class="card" id="review">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <h2 id="rvTitle" style="margin:0"></h2>
+      <button class="ghost" id="fechar">Fechar</button>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="grid">
+      <div>
+        <div id="stage"><video id="player" controls preload="metadata"></video></div>
+        <canvas id="tl"></canvas>
+        <div class="legend"><span><i style="background:var(--rally)"></i>rally (vai para o vídeo)</span><span><i style="background:var(--rally-off)"></i>descartado</span><span><i style="background:var(--sand)"></i>atividade detectada</span></div>
+        <div class="actions">
+          <label class="row hint"><input type="checkbox" id="soRallys" checked> Pular os trechos parados ao assistir</label>
+        </div>
+        <div class="audio">
+          <h3>📐 Formato do vídeo final</h3>
+          <div class="row">
+            <div class="seg" id="propSel">
+              <button data-v="original" class="on">Original</button><button data-v="16:9">16:9</button><button data-v="4:3">4:3</button>
+            </div>
+            <span class="hint" id="propInfo"></span>
+          </div>
+          <div id="fmtOpts" style="display:none;margin-top:10px">
+            <div class="row">
+              <div class="seg" id="modoSel"><button data-v="cortar" class="on">Cortar laterais</button><button data-v="desfocar">Imagem inteira + fundo desfocado</button></div>
+            </div>
+            <div class="row" id="posRow" style="margin-top:10px">
+              <span class="hint" style="width:62px">Posição</span>
+              <span class="hint">◀</span><input type="range" id="pos" min="0" max="100" value="50" style="flex:1;accent-color:var(--sea)"><span class="hint">▶</span>
+              <button class="ghost mini" id="posReset" title="Centralizar">↺</button>
+            </div>
+          </div>
+          <div class="hint" style="margin-top:6px">O player já mostra o enquadramento escolhido. Saída em 1080p.</div>
+        </div>
+        <div class="audio">
+          <h3>🔊 Áudio do vídeo final</h3>
+          <div class="row">
+            <span class="hint" style="width:62px">Volume</span>
+            <input type="range" id="vol" min="50" max="400" step="10" value="100">
+            <b id="volTxt" style="width:52px;text-align:right">100%</b>
+            <button class="ghost mini" id="volReset" title="Voltar ao original">↺</button>
+          </div>
+          <label class="row hint" style="margin-top:8px"><input type="checkbox" id="vento"> Reduzir ruído de vento (corta os graves)</label>
+          <div class="hint" style="margin-top:6px">A prévia no player já toca com esse volume. Acima de 100% um limitador evita que gritos e batidas estourem.</div>
+        </div>
+      </div>
+      <div>
+        <div id="segs"><table><thead><tr><th></th><th>#</th><th>Início</th><th>Fim</th><th>Dur.</th><th></th></tr></thead><tbody id="segBody"></tbody></table></div>
+        <div class="actions">
+          <button class="ghost" id="addSeg">+ Rally no ponto atual</button>
+          <button id="exportar">Gerar vídeo só com rallys</button>
+        </div>
+        <div id="exp" style="display:none;margin-top:12px">
+          <div class="row" style="justify-content:space-between"><span id="expEtapa"></span><span id="expPct" class="muted"></span></div>
+          <div class="bar"><i id="expBar"></i></div>
+        </div>
+        <div id="baixar" class="actions" style="display:none"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Seus vídeos</h2>
+    <table><thead><tr><th>Vídeo</th><th>Status</th><th>Duração</th><th>Rallys</th><th></th></tr></thead><tbody id="jobs"></tbody></table>
+    <p class="hint" id="vazio">Nenhum vídeo ainda.</p>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = s => document.querySelector(s);
+const fmt = t => { t = Math.max(0, t); const m = Math.floor(t/60), s = t - m*60; return `${m}:${s.toFixed(1).padStart(4,'0')}`; };
+const fmtDur = t => { const h=Math.floor(t/3600), m=Math.floor(t%3600/60), s=Math.round(t%60); return h? `${h}h${String(m).padStart(2,'0')}` : `${m}min ${String(s).padStart(2,'0')}s`; };
+const nomes = {na_fila:'Na fila', analisando:'Analisando', revisao:'Revisar', exportando:'Exportando', concluido:'Concluído', erro:'Erro'};
+function toast(m){ const t=$('#toast'); t.textContent=m; t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none',3500); }
+
+// ---------- upload
+const drop = $('#drop'), file = $('#file');
+drop.onclick = () => file.click();
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) enviar(e.dataTransfer.files[0]); };
+file.onchange = () => file.files[0] && enviar(file.files[0]);
+function enviar(f){
+  $('#up').style.display='block'; $('#upname').textContent = f.name;
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST','/api/upload'); xhr.setRequestHeader('X-Filename', encodeURIComponent(f.name).replace(/%20/g,' '));
+  xhr.upload.onprogress = e => { const p = e.loaded/e.total*100; $('#upbar').style.width=p+'%'; $('#uppct').textContent = p.toFixed(0)+'%'; };
+  xhr.onload = () => { $('#up').style.display='none'; file.value=''; if (xhr.status<300){ toast('Vídeo enviado. Analisando…'); carregarJobs(); } else toast('Falha no envio'); };
+  xhr.onerror = () => toast('Falha no envio');
+  xhr.send(f);
+}
+$('#btnCaminho').onclick = async () => {
+  const r = await fetch('/api/caminho',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({caminho:$('#caminho').value})});
+  const j = await r.json(); if (!r.ok) return toast(j.detail || 'Erro');
+  $('#caminho').value=''; toast('Analisando…'); carregarJobs();
+};
+
+// ---------- lista
+let jobsCache = [];
+async function carregarJobs(){
+  jobsCache = await (await fetch('/api/jobs')).json();
+  $('#vazio').style.display = jobsCache.length ? 'none':'block';
+  $('#jobs').innerHTML = jobsCache.map(j => {
+    const ativo = ['na_fila','analisando','exportando'].includes(j.status);
+    const n = (j.segmentos||[]).filter(s=>s.ativo!==false).length;
+    return `<tr><td>${j.nome.replace(/</g,'&lt;')}</td>
+      <td><span class="tag ${j.status}">${nomes[j.status]||j.status}${ativo? ' '+Math.round(j.progresso*100)+'%':''}</span>${j.erro? `<div class="hint">${j.erro.slice(0,160).replace(/</g,'&lt;')}</div>`:''}</td>
+      <td>${j.duracao? fmtDur(j.duracao):'—'}</td><td>${j.segmentos? n:'—'}</td>
+      <td style="text-align:right;white-space:nowrap">
+        ${j.segmentos? `<button class="ghost" onclick="abrir('${j.id}')">Revisar</button>`:''}
+        ${j.status==='concluido'? `<a href="/api/jobs/${j.id}/download"><button>Baixar</button></a>`:''}
+        ${!ativo? `<button class="danger" onclick="apagar('${j.id}')">Apagar</button>`:''}
+      </td></tr>`;
+  }).join('');
+  if (atual) { const j = jobsCache.find(x=>x.id===atual.id); if (j) atualizarExport(j); }
+}
+async function apagar(id){ if (!confirm('Apagar este trabalho? (o vídeo original fora do RallyCut não é apagado)')) return;
+  await fetch('/api/jobs/'+id,{method:'DELETE'}); if (atual&&atual.id===id) fechar(); carregarJobs(); }
+setInterval(carregarJobs, 2000); carregarJobs();
+
+// ---------- revisão
+let atual = null, analise = null, segs = [];
+const player = $('#player'), tl = $('#tl');
+async function abrir(id){
+  const job = jobsCache.find(j=>j.id===id);
+  analise = await (await fetch(`/api/jobs/${id}/analise`)).json();
+  atual = job; segs = job.segmentos.map(s=>({...s, ativo: s.ativo!==false}));
+  $('#review').style.display='block'; $('#rvTitle').textContent = job.nome;
+  player.src = `/api/jobs/${id}/video`;
+  $('#baixar').style.display='none'; $('#exp').style.display='none';
+  formato = Object.assign({proporcao:'original', modo:'cortar', pos:0.5}, job.formato||{}); aplicarFormato();
+  const au = job.audio || {}; $('#vol').value = Math.round((au.volume||1)*100); $('#vento').checked = !!au.vento; aplicarAudio();
+  atualizarExport(job); renderSegs(); desenhar();
+  $('#review').scrollIntoView({behavior:'smooth'});
+}
+function fechar(){ atual=null; $('#review').style.display='none'; player.removeAttribute('src'); player.load(); }
+$('#fechar').onclick = fechar;
+
+function renderSegs(){
+  segs.sort((a,b)=>a.ini-b.ini);
+  const on = segs.filter(s=>s.ativo), total = on.reduce((a,s)=>a+s.fim-s.ini,0);
+  $('#stats').innerHTML = `<div><b>${on.length}</b><span>rallys</span></div><div><b>${fmtDur(total)}</b><span>vídeo final</span></div>
+    <div><b>${fmtDur(analise.duracao)}</b><span>vídeo original</span></div><div><b>${Math.round((1-total/analise.duracao)*100)}%</b><span>cortado</span></div>`;
+  $('#segBody').innerHTML = segs.map((s,i)=>`<tr class="${s.ativo?'':'off'}" data-i="${i}">
+    <td><input type="checkbox" ${s.ativo?'checked':''} onchange="segs[${i}].ativo=this.checked;renderSegs();desenhar()"></td>
+    <td>${i+1}</td>
+    <td><input type="number" step="0.1" value="${s.ini.toFixed(1)}" onchange="mudar(${i},'ini',this.value)"></td>
+    <td><input type="number" step="0.1" value="${s.fim.toFixed(1)}" onchange="mudar(${i},'fim',this.value)"></td>
+    <td class="muted">${(s.fim-s.ini).toFixed(0)}s</td>
+    <td style="white-space:nowrap"><button class="ghost" title="Assistir" onclick="player.currentTime=${s.ini};player.play()">▶</button>
+      <button class="ghost" title="Baixar só este rally" onclick="baixarClipe(${i}, this)">⬇</button>
+      <button class="danger" title="Remover" onclick="segs.splice(${i},1);renderSegs();desenhar()">✕</button></td></tr>`).join('');
+}
+function mudar(i,k,v){ v=parseFloat(v); if(isNaN(v)) return; segs[i][k]=Math.max(0,Math.min(analise.duracao,v));
+  if (segs[i].fim<=segs[i].ini) segs[i].fim = segs[i].ini+1; renderSegs(); desenhar(); }
+$('#addSeg').onclick = () => { const t = player.currentTime; segs.push({ini:Math.max(0,t-2), fim:Math.min(analise.duracao,t+8), ativo:true}); renderSegs(); desenhar(); };
+
+function desenhar(){
+  if (!analise) return;
+  const dpr = window.devicePixelRatio||1, W = tl.clientWidth, H = tl.clientHeight;
+  tl.width = W*dpr; tl.height = H*dpr; const c = tl.getContext('2d'); c.scale(dpr,dpr); c.clearRect(0,0,W,H);
+  const D = analise.duracao, x = t => t/D*W;
+  for (const s of segs){ c.fillStyle = s.ativo? getComputedStyle(document.body).getPropertyValue('--rally') : getComputedStyle(document.body).getPropertyValue('--rally-off');
+    c.fillRect(x(s.ini), 6, Math.max(2,x(s.fim)-x(s.ini)), H-12); }
+  const sc = analise.score, dt = analise.passo;
+  c.strokeStyle = '#e8b04b'; c.lineWidth = 1.5; c.beginPath();
+  sc.forEach((v,i)=>{ const px=x(i*dt), py=H-6-(H-12)*Math.min(1,v); i? c.lineTo(px,py):c.moveTo(px,py); }); c.stroke();
+  c.fillStyle = '#e2574c'; c.fillRect(x(player.currentTime)-1, 0, 2, H);
+}
+tl.onclick = e => { const r = tl.getBoundingClientRect(); player.currentTime = (e.clientX-r.left)/r.width*analise.duracao; };
+window.onresize = desenhar;
+player.ontimeupdate = () => {
+  desenhar(); if (!segs.length) return;
+  const t = player.currentTime;
+  document.querySelectorAll('#segBody tr').forEach(tr => { const s = segs[+tr.dataset.i]; tr.classList.toggle('now', t>=s.ini && t<s.fim); });
+  if ($('#soRallys').checked && !player.paused){
+    const on = segs.filter(s=>s.ativo);
+    if (!on.some(s=>t>=s.ini-0.05 && t<s.fim)){ const prox = on.find(s=>s.ini>t); if (prox) player.currentTime = prox.ini; else player.pause(); }
+  }
+};
+
+// ---------- formato (16:9 / 4:3)
+let formato = {proporcao:'original', modo:'cortar', pos:0.5};
+const RAZOES = {'16:9':16/9, '4:3':4/3};
+function marcar(sel, v){ document.querySelectorAll(sel+' button').forEach(b=>b.classList.toggle('on', b.dataset.v===v)); }
+function aplicarFormato(){
+  marcar('#propSel', formato.proporcao); marcar('#modoSel', formato.modo);
+  $('#pos').value = Math.round(formato.pos*100);
+  const stage = $('#stage'), vw = player.videoWidth, vh = player.videoHeight;
+  const alvo = RAZOES[formato.proporcao];
+  $('#fmtOpts').style.display = alvo ? 'block':'none';
+  $('#posRow').style.display = (alvo && formato.modo==='cortar') ? 'flex':'none';
+  if (!vw || !alvo){ stage.style.width=''; stage.style.height=''; player.style.objectFit=''; player.style.objectPosition='';
+    $('#propInfo').textContent = vw? `original ${vw}×${vh} (${(vw/vh).toFixed(2)}:1)` : ''; return; }
+  const col = stage.parentElement.clientWidth, H = col/(vw/vh), W = Math.min(col, H*alvo);
+  stage.style.width = W+'px'; stage.style.height = (W/alvo)+'px';
+  player.style.objectFit = formato.modo==='cortar' ? 'cover' : 'contain';
+  player.style.objectPosition = `${formato.pos*100}% 50%`;
+  const perda = Math.max(0, 1 - alvo/(vw/vh));
+  $('#propInfo').textContent = formato.modo==='cortar' ? `corta ${Math.round(perda*100)}% da largura` : 'nada é cortado';
+}
+$('#propSel').onclick = e => { const v=e.target.dataset.v; if(v){ formato.proporcao=v; aplicarFormato(); desenhar(); } };
+$('#modoSel').onclick = e => { const v=e.target.dataset.v; if(v){ formato.modo=v; aplicarFormato(); } };
+$('#pos').oninput = () => { formato.pos = +$('#pos').value/100; aplicarFormato(); };
+$('#posReset').onclick = () => { formato.pos = 0.5; aplicarFormato(); };
+player.addEventListener('loadedmetadata', aplicarFormato);
+window.addEventListener('resize', aplicarFormato);
+
+// ---------- prévia de áudio (Web Audio: o <video> sozinho não passa de 100%)
+let actx = null, nGanho, nFiltro;
+function prepararAudio(){
+  if (actx) return;
+  try {
+    actx = new (window.AudioContext||window.webkitAudioContext)();
+    const src = actx.createMediaElementSource(player);
+    nFiltro = actx.createBiquadFilter(); nFiltro.type = 'highpass'; nFiltro.frequency.value = 10;
+    nGanho = actx.createGain();
+    const lim = actx.createDynamicsCompressor();
+    lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.005; lim.release.value = 0.05;
+    src.connect(nFiltro); nFiltro.connect(nGanho); nGanho.connect(lim); lim.connect(actx.destination);
+  } catch(e) { actx = null; }
+  aplicarAudio();
+}
+function aplicarAudio(){
+  const v = +$('#vol').value;
+  $('#volTxt').textContent = v + '%';
+  if (!actx) return;
+  nGanho.gain.value = v/100;
+  nFiltro.frequency.value = $('#vento').checked ? 120 : 10;
+}
+player.addEventListener('play', () => { prepararAudio(); if (actx && actx.state === 'suspended') actx.resume(); });
+$('#vol').oninput = () => { prepararAudio(); aplicarAudio(); };
+$('#vento').onchange = () => { prepararAudio(); aplicarAudio(); };
+$('#volReset').onclick = () => { $('#vol').value = 100; aplicarAudio(); };
+
+// ---------- baixar um único rally
+async function baixarClipe(i, btn){
+  const s = segs[i]; if (!s) return;
+  const txt = btn.textContent; btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const r = await fetch(`/api/jobs/${atual.id}/clipe`, {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ini:s.ini, fim:s.fim, numero:i+1, audio:{volume:+$('#vol').value/100, vento:$('#vento').checked},
+                            formato:{proporcao:formato.proporcao, modo:formato.modo, pos:formato.pos}})});
+    if (!r.ok){ let m='Erro ao gerar o rally'; try{ m=(await r.json()).detail||m; }catch(e){} throw new Error(m); }
+    const nome = (r.headers.get('content-disposition')||'').match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+    const blob = await r.blob(), url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = nome ? decodeURIComponent(nome[1]) : `rally_${i+1}.mp4`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 60000);
+    toast(`Rally ${i+1} baixado`);
+  } catch(e){ toast(e.message); }
+  finally { btn.disabled = false; btn.textContent = txt; }
+}
+
+$('#exportar').onclick = async () => {
+  const r = await fetch(`/api/jobs/${atual.id}/exportar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({segmentos:segs, audio:{volume:+$('#vol').value/100, vento:$('#vento').checked}, formato:{proporcao:formato.proporcao, modo:formato.modo, pos:formato.pos}})});
+  const j = await r.json(); if (!r.ok) return toast(j.detail||'Erro'); atualizarExport(j); carregarJobs();
+};
+function atualizarExport(j){
+  const ativo = ['na_fila','exportando'].includes(j.status) && j.acao==='exportar' || j.status==='exportando';
+  $('#exportar').disabled = ativo;
+  $('#exp').style.display = ativo? 'block':'none';
+  if (ativo){ $('#expEtapa').textContent=j.etapa; $('#expPct').textContent=Math.round(j.progresso*100)+'%'; $('#expBar').style.width=j.progresso*100+'%'; }
+  if (j.status==='concluido'){ $('#baixar').style.display='flex'; $('#baixar').innerHTML=`<a href="/api/jobs/${j.id}/download"><button>⬇ Baixar vídeo final</button></a>`; }
+  else $('#baixar').style.display='none';
+  if (j.status==='erro' && j.erro!==ultimoErro) toast(j.erro);
+  ultimoErro = j.erro;
+}
+let ultimoErro = null;
+</script>
+</body>
+</html>
