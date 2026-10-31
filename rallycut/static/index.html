@@ -16,7 +16,7 @@
   header h1{margin:0;font-size:20px;letter-spacing:-.01em}
   header h1 span{color:var(--sea)}
   .logo{width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff 0 18%,var(--sand) 19% 55%,var(--sea) 56%)}
-  main{max-width:1180px;margin:0 auto;padding:24px 20px 60px}
+  main{max-width:1600px;margin:0 auto;padding:24px 20px 60px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:20px}
   h2{font-size:16px;margin:0 0 12px}
   .drop{border:2px dashed var(--line);border-radius:12px;padding:34px;text-align:center;cursor:pointer;transition:.15s}
@@ -43,16 +43,48 @@
   .tag.erro{background:#fbe1de;color:var(--coral)}.tag.analisando,.tag.exportando,.tag.na_fila{background:#dceef3;color:var(--sea)}
   .muted{color:var(--muted)}
   #review{display:none}
-  .grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);gap:20px}
-  @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  .grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(520px,1fr);gap:24px}
+  @media (max-width:1100px){.grid{grid-template-columns:1fr}}
   video{width:100%;border-radius:10px;background:#000;display:block}
   #tl{width:100%;height:92px;display:block;margin-top:12px;cursor:pointer;border-radius:8px;background:#fff;border:1px solid var(--line)}
   .legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:6px}
   .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px}
-  #segs{max-height:520px;overflow:auto}
+  #segs{max-height:78vh;overflow-y:auto;overflow-x:hidden}
+  #segs table{table-layout:auto}
+  #segs td:nth-child(5){min-width:150px}
   #segs button{padding:6px 9px}
-  #segs input[type=number]{width:72px}
+  .pl-grid{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center;margin-top:10px}
+  .pl-grid input[type=text]{min-width:0}
+  .pl-grid .seg{justify-self:start}
+  .sets-tab{margin-top:12px;font-size:13px}
+  .sets-tab th{font-size:11px;padding:6px 4px}
+  .sets-tab td{padding:6px 4px}
+  .sets-tab .seg button{padding:4px 10px;font-size:13px}
+  .sets-tab input[type=number]{width:96px}
+  .set-ini{display:inline-block;font-size:11px;font-weight:700;color:#fff;background:var(--ink);border-radius:4px;padding:1px 6px;margin-bottom:2px}
+  .pl-grid input[type=number]{width:60px}
+  .venc{border:1px solid var(--line);background:#fff;color:var(--ink);font-weight:600;padding:3px 8px;border-radius:99px;font-size:12px}
+  .venc.auto{border-style:dashed}
+  .venc.A{background:#dceef3;color:var(--sea)} .venc.B{background:#fdf0d5;color:#8a5a00}
+  .venc.nd{background:#fbe1de;color:var(--coral)}
+  .plc{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:13px}
+  #lixeira{margin-top:12px;border:1px dashed #c9c2b4;border-radius:10px;padding:8px 12px;background:rgba(0,0,0,.02)}
+  #lixeira summary{cursor:pointer;font-weight:600;padding:4px 0}
+  #lixeira table{width:100%;margin-top:6px}
+  #lixeira td{padding:6px 4px;border-top:1px solid rgba(0,0,0,.06)}
+  .pled input{width:3.2em;padding:2px 4px;text-align:center;font-size:13px;font-variant-numeric:tabular-nums;-moz-appearance:textfield}
+  .pled input::-webkit-inner-spin-button{opacity:.6}
+  .pled{display:inline-flex;align-items:flex-end;gap:3px}
+  .plt{display:inline-flex;flex-direction:column;align-items:center;gap:1px}
+  .plt label{font-size:10px;font-weight:700;letter-spacing:.03em;padding:0 5px;border-radius:6px;line-height:15px;max-width:5em;overflow:hidden;white-space:nowrap}
+  .plt label.tA{background:#dceef3;color:var(--sea)}
+  .plt label.tB{background:#fdf0d5;color:#8a5a00}
+  .plx{padding-bottom:4px}
+  .pled.manual input{border-color:#e8b04b;background:#fff7e6;font-weight:700}
+  button.mini{padding:1px 6px;font-size:12px}
+  #segs input[type=number]{width:66px}
   #segs td{padding:8px 4px}
+  #segs .ref{font-size:10px;color:var(--muted);white-space:nowrap}
   #segs tr.off td{opacity:.45}
   #segs tr.now td{background:#eef6f8}
   .stats{display:flex;gap:22px;margin:4px 0 14px;flex-wrap:wrap}
@@ -61,7 +93,18 @@
   .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
   .hint{font-size:13px;color:var(--muted)}
   #stage{background:#000;border-radius:10px;overflow:hidden;margin:0 auto;max-width:100%}
-  #stage video{border-radius:0;width:100%;height:100%}
+  #stage video{border-radius:0;width:100%;height:100%;display:block}
+  #stage{position:relative}
+  #plLive{position:absolute;left:2.5%;top:2.5%;display:none;pointer-events:none;font-weight:700;letter-spacing:.02em;
+    font-size:clamp(9px,1.9cqh,22px);container-type:normal}
+  #plLive .sb{display:grid;grid-template-columns:auto auto;border-radius:.35em;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+  #plLive .nm{background:rgba(16,32,44,.88);color:#fff;padding:.25em .7em .25em .5em;display:flex;align-items:center;gap:.45em;text-transform:uppercase}
+  #plLive .nm i{width:.55em;height:.55em;border-radius:50%;background:transparent;display:inline-block}
+  #plLive .nm i.on{background:#e8b04b}
+  #plLive .pt{background:rgba(15,110,140,.94);color:#fff;min-width:1.9em;text-align:center;padding:.25em .4em;font-size:1.15em;transition:background .3s}
+  #plLive .pt.hl{background:#e8b04b;color:#10202c}
+  #plLive .nm:first-child,#plLive .pt:nth-child(2){border-bottom:1px solid rgba(255,255,255,.22)}
+  #plLive .st{color:#fff;font-size:.62em;margin-top:.35em;text-shadow:0 1px 3px rgba(0,0,0,.8)}
   .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
   .seg button{background:#fff;color:var(--ink);border-radius:0;font-weight:500;padding:7px 14px;border-right:1px solid var(--line)}
   .seg button:last-child{border-right:0}
@@ -70,11 +113,39 @@
   .audio h3{margin:0 0 10px;font-size:14px}
   .audio input[type=range]{flex:1;accent-color:var(--sea)}
   button.mini{padding:4px 10px}
+  .an{padding:4px 0 14px;border-bottom:1px solid var(--line);margin-bottom:14px}
+  .an:last-child{border-bottom:0;margin-bottom:0;padding-bottom:0}
+  .an-top{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px}
+  .an-top b{font-size:15px}
+  .an .bar{height:12px}
+  .an .bar>i{background:linear-gradient(90deg,var(--sea),#2a93b3);position:relative;overflow:hidden}
+  .an .bar>i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:brilho 1.6s linear infinite}
+  @keyframes brilho{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+  .an-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+  @media (max-width:700px){.an-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .an-grid div{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .an-grid b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+  .an-grid span{font-size:12px;color:var(--muted)}
+  .etapas{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .etapas span{font-size:12px;padding:3px 10px;border-radius:99px;background:var(--line);color:var(--muted)}
+  .etapas span.on{background:#dceef3;color:var(--sea);font-weight:600}
+  .etapas span.ok{background:#dcf2e6;color:var(--ok)}
+  #pronto{position:fixed;top:16px;right:16px;z-index:50;background:var(--card);border:1px solid var(--line);border-left:5px solid var(--ok);
+    border-radius:12px;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.15);max-width:360px;animation:entra .3s ease}
+  #pronto b{display:block;margin-bottom:4px}
+  @keyframes entra{from{transform:translateY(-10px);opacity:0}to{transform:none;opacity:1}}
+  #toast button{color:#fff;border-color:rgba(255,255,255,.4);padding:3px 10px}
   #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;display:none}
 </style>
 </head>
 <body>
-<header><div class="logo"></div><h1>Rally<span>Cut</span></h1><span class="muted">— deixa só os rallys do seu treino</span></header>
+<header><div class="logo"></div><h1>Rally<span>Cut</span></h1><span class="muted">— deixa só os rallys do seu treino</span>
+  <div class="row" style="margin-left:auto;gap:8px">
+    <button class="ghost mini" id="avisoBtn" title="Notificação do Windows e som quando um vídeo ficar pronto">🔔 Avisos: ligados</button>
+    <button class="ghost mini" id="avisoTeste" title="Mostra uma notificação de teste">Testar</button>
+  </div>
+</header>
+<div id="pronto" style="display:none"></div>
 <main>
   <section class="card" id="novo">
     <h2>Novo vídeo</h2>
@@ -94,6 +165,8 @@
     </div>
   </section>
 
+  <section class="card" id="andamento" style="display:none"></section>
+
   <section class="card" id="review">
     <div class="row" style="justify-content:space-between;margin-bottom:8px">
       <h2 id="rvTitle" style="margin:0"></h2>
@@ -102,9 +175,9 @@
     <div class="stats" id="stats"></div>
     <div class="grid">
       <div>
-        <div id="stage"><video id="player" controls preload="metadata"></video></div>
+        <div id="stage"><video id="player" controls preload="metadata"></video><div id="plLive"></div></div>
         <canvas id="tl"></canvas>
-        <div class="legend"><span><i style="background:var(--rally)"></i>rally (vai para o vídeo)</span><span><i style="background:var(--rally-off)"></i>descartado</span><span><i style="background:var(--sand)"></i>atividade detectada</span></div>
+        <div class="legend"><span><i style="background:var(--rally)"></i>rally (vai para o vídeo)</span><span><i style="background:var(--rally-off)"></i>descartado</span><span><i style="background:var(--sand)"></i>atividade detectada</span><span>▼ saque &nbsp;▽ pela rede &nbsp;<b style="color:#e2574c">▽</b> pela recepção</span></div>
         <div class="actions">
           <label class="row hint"><input type="checkbox" id="soRallys" checked> Pular os trechos parados ao assistir</label>
         </div>
@@ -139,12 +212,31 @@
           <label class="row hint" style="margin-top:8px"><input type="checkbox" id="vento"> Reduzir ruído de vento (corta os graves)</label>
           <div class="hint" style="margin-top:6px">A prévia no player já toca com esse volume. Acima de 100% um limitador evita que gritos e batidas estourem.</div>
         </div>
+        <div class="audio">
+          <h3>🏆 Placar</h3>
+          <label class="row hint"><input type="checkbox" id="plAtivo"> Mostrar o placar no vídeo final</label>
+          <div class="pl-grid">
+            <span class="hint">Dupla A</span><input type="text" id="nomeA" value="Dupla A" maxlength="24">
+            <span class="hint">Dupla B</span><input type="text" id="nomeB" value="Dupla B" maxlength="24">
+            <span class="hint">Placar inicial (A × B)</span><div class="row"><input type="number" id="iniA" min="0" max="99" value="0"> × <input type="number" id="iniB" min="0" max="99" value="0"></div>
+            <span class="hint">O vídeo começa no</span><div class="row"><div class="seg" id="setSel"><button data-v="1" class="on">1º</button><button data-v="2">2º</button><button data-v="3">3º</button></div><span class="hint">set · sets ganhos</span><input type="number" id="setsA" min="0" max="2" value="0"> × <input type="number" id="setsB" min="0" max="2" value="0"></div>
+          </div>
+          <table class="sets-tab"><thead><tr><th>Set</th><th>Até</th><th>Perto da câmera no começo</th><th>Começa no rally</th></tr></thead><tbody id="setsBody"></tbody></table>
+          <div class="hint" style="margin-top:8px">A partir do 2º saque de cada set, o ponto vai para quem está sacando — o placar muda no momento do saque. Regra oficial: sets de 21 com troca de lado a cada 7 pontos; tie-break (3º set) até 15 com troca a cada 5. A cada novo set as duplas começam do lado contrário ao do set anterior — se não foi assim, ou se o set acabou em outro rally, corrija na tabela. Se o app errou quem sacou, clique no 🏐 da lista de rallys para corrigir.</div>
+        </div>
       </div>
       <div>
-        <div id="segs"><table><thead><tr><th></th><th>#</th><th>Início</th><th>Fim</th><th>Dur.</th><th></th></tr></thead><tbody id="segBody"></tbody></table></div>
+        <div id="segs"><table><thead><tr><th></th><th>#</th><th>Início</th><th>Fim</th><th>Placar</th><th></th></tr></thead><tbody id="segBody"></tbody></table></div>
+        <details id="lixeira" style="display:none"><summary>🗑 Jogadas excluídas (<span id="lixCont">0</span>) <span class="hint">— clique para ver e restaurar</span></summary>
+          <table><thead><tr><th>Início</th><th>Duração</th><th></th><th></th></tr></thead><tbody id="lixBody"></tbody></table></details>
+        <div class="row hint" style="margin-top:12px" title="O app acha o lançamento do saque de cada rally e começa o corte esse tanto antes. Rallys que você ajustou à mão não mudam.">
+          <span>Começar</span><input type="range" id="antesSaque" min="0" max="4" step="0.5" value="0.5" style="flex:1;accent-color:var(--sea)">
+          <b id="antesTxt" style="width:40px;text-align:right">1,5 s</b><span>antes do saque</span>
+        </div>
         <div class="actions">
           <button class="ghost" id="addSeg">+ Rally no ponto atual</button>
           <button id="exportar">Gerar vídeo só com rallys</button>
+          <button class="ghost" id="marcacoes" title="Lista de pontos com START FRAME, END FRAME e quem venceu">📋 Marcações dos pontos</button>
         </div>
         <div id="exp" style="display:none;margin-top:12px">
           <div class="row" style="justify-content:space-between"><span id="expEtapa"></span><span id="expPct" class="muted"></span></div>
@@ -193,38 +285,145 @@ $('#btnCaminho').onclick = async () => {
 
 // ---------- lista
 let jobsCache = [];
+// ---------- avisos quando um vídeo fica pronto
+const statusAnterior = {};
+let avisosLigados = true, tituloOriginal = document.title, piscando = null;
+function bip(){
+  try {
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    [[660,0],[880,.16],[1100,.32]].forEach(([f,t]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime+t); g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime+t+.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+t+.15);
+      o.connect(g); g.connect(ctx.destination); o.start(ctx.currentTime+t); o.stop(ctx.currentTime+t+.16);
+    });
+  } catch(e) {}
+}
+function piscarTitulo(txt){
+  clearInterval(piscando); let on = false;
+  piscando = setInterval(() => { document.title = (on = !on) ? txt : tituloOriginal; }, 1000);
+}
+window.addEventListener('focus', () => { clearInterval(piscando); document.title = tituloOriginal; });
+function avisarPronto(j, tipo){
+  if (!avisosLigados) return;
+  const revisao = tipo === 'revisao';
+  const n = (j.segmentos||[]).filter(s=>s.ativo!==false).length;
+  const box = $('#pronto');
+  box.innerHTML = `<b>${revisao ? '🏐 Pronto para revisar' : '✅ Vídeo pronto'}</b>
+    <div class="hint">${esc(j.nome)}${revisao ? ` — ${n} rallys encontrados` : ''}</div>
+    <div class="actions" style="margin-top:10px">
+      ${revisao ? `<button onclick="abrir('${j.id}');fecharPronto()">Revisar agora</button>` : `<a href="/api/jobs/${j.id}/download"><button onclick="fecharPronto()">⬇ Baixar</button></a>`}
+      <button class="ghost" onclick="fecharPronto()">Fechar</button></div>`;
+  box.style.display = 'block';
+  bip();
+  if (!document.hasFocus()) piscarTitulo(revisao ? '✅ Pronto para revisar' : '✅ Vídeo pronto');
+}
+function fecharPronto(){ $('#pronto').style.display = 'none'; }
+async function carregarAvisos(){
+  try { const c = await (await fetch('/api/config')).json(); avisosLigados = c.notificar_windows !== false; } catch(e) {}
+  $('#avisoBtn').textContent = avisosLigados ? '🔔 Avisos: ligados' : '🔕 Avisos: desligados';
+}
+$('#avisoBtn').onclick = async () => {
+  avisosLigados = !avisosLigados;
+  await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({notificar_windows: avisosLigados})});
+  carregarAvisos();
+};
+$('#avisoTeste').onclick = async () => {
+  const r = await (await fetch('/api/notificar-teste', {method:'POST'})).json();
+  bip(); toast(r.ok ? 'Notificação enviada — veja no canto da tela' : 'Notificação do Windows desligada ou indisponível (o som e o aviso na página continuam)');
+};
+carregarAvisos();
+
 async function carregarJobs(){
   jobsCache = await (await fetch('/api/jobs')).json();
+  for (const j of jobsCache){
+    const antes = statusAnterior[j.id];
+    if (antes && antes !== j.status){
+      if (j.status === 'revisao' && (antes === 'analisando' || antes === 'na_fila')) avisarPronto(j, 'revisao');
+      if (j.status === 'concluido' && (antes === 'exportando' || antes === 'na_fila')) avisarPronto(j, 'concluido');
+    }
+    statusAnterior[j.id] = j.status;
+  }
+  // link da notificação do Windows: #job=<id> abre a revisão daquele vídeo
+  const m = location.hash.match(/job=([0-9a-f]{12})/);
+  if (m){ const alvo = jobsCache.find(j => j.id === m[1]); history.replaceState(null, '', location.pathname); if (alvo && alvo.segmentos) setTimeout(() => abrir(alvo.id), 50); }
   $('#vazio').style.display = jobsCache.length ? 'none':'block';
   $('#jobs').innerHTML = jobsCache.map(j => {
     const ativo = ['na_fila','analisando','exportando'].includes(j.status);
     const n = (j.segmentos||[]).filter(s=>s.ativo!==false).length;
     return `<tr><td>${j.nome.replace(/</g,'&lt;')}</td>
-      <td><span class="tag ${j.status}">${nomes[j.status]||j.status}${ativo? ' '+Math.round(j.progresso*100)+'%':''}</span>${j.erro? `<div class="hint">${j.erro.slice(0,160).replace(/</g,'&lt;')}</div>`:''}</td>
+      <td><span class="tag ${j.status}">${nomes[j.status]||j.status}${ativo? ' '+Math.round(j.progresso*100)+'%':''}</span>${j.erro? `<div class="hint">${j.erro.slice(0,160).replace(/</g,'&lt;')}</div>`:''}${j.tempo_analise && !ativo ? `<div class="hint">analisado em ${relogio(j.tempo_analise)}</div>`:''}</td>
       <td>${j.duracao? fmtDur(j.duracao):'—'}</td><td>${j.segmentos? n:'—'}</td>
       <td style="text-align:right;white-space:nowrap">
         ${j.segmentos? `<button class="ghost" onclick="abrir('${j.id}')">Revisar</button>`:''}
         ${j.status==='concluido'? `<a href="/api/jobs/${j.id}/download"><button>Baixar</button></a>`:''}
+        ${!ativo && j.segmentos? `<button class="ghost" title="Analisar o vídeo de novo com a versão atual (necessário para o placar automático em vídeos antigos)" onclick="reanalisar('${j.id}')">↻</button>`:''}
         ${!ativo? `<button class="danger" onclick="apagar('${j.id}')">Apagar</button>`:''}
       </td></tr>`;
   }).join('');
   if (atual) { const j = jobsCache.find(x=>x.id===atual.id); if (j) atualizarExport(j); }
+  renderAndamento();
+}
+
+// ---------- indicadores da análise em andamento
+const relogio = t => { t = Math.max(0, Math.round(t)); const h = Math.floor(t/3600), m = Math.floor(t%3600/60), s = t%60;
+  return (h ? h + ':' + String(m).padStart(2,'0') : m) + ':' + String(s).padStart(2,'0'); };
+function renderAndamento(){
+  const lista = jobsCache.filter(j => j.status === 'analisando' || (j.status === 'na_fila' && j.acao !== 'exportar'));
+  const box = $('#andamento');
+  if (!lista.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  const agora = Date.now()/1000;
+  box.style.display = 'block';
+  box.innerHTML = `<h2>${lista.length > 1 ? 'Análises em andamento' : 'Analisando o vídeo'}</h2>` + lista.map(j => {
+    if (j.status === 'na_fila') return `<div class="an"><div class="an-top"><b>${j.nome.replace(/</g,'&lt;')}</b><span class="hint">na fila, aguardando a análise atual terminar</span></div></div>`;
+    const p = j.progresso || 0, dec = j.inicio ? agora - j.inicio : 0;
+    const resta = (j.eta != null && j.eta_em) ? Math.max(0, j.eta - (agora - j.eta_em)) : null;
+    const dv = j.duracao_video || 0;
+    const etapa2 = /etapa 2/.test(j.etapa || '');
+    const lido = etapa2 ? dv : Math.min(dv, dv * p / 0.8);
+    const vel = dec > 3 && dv ? (dv * p) / dec : null;
+    return `<div class="an">
+      <div class="an-top"><b>${j.nome.replace(/</g,'&lt;')}</b><span class="hint">${(j.etapa||'').replace(/</g,'&lt;')}</span></div>
+      <div class="row" style="gap:12px"><div class="bar" style="flex:1"><i style="width:${(p*100).toFixed(1)}%"></i></div><b style="font-variant-numeric:tabular-nums">${(p*100).toFixed(0)}%</b></div>
+      <div class="an-grid">
+        <div><b>${relogio(dec)}</b><span>tempo decorrido</span></div>
+        <div><b>${resta == null ? '…' : '~' + relogio(resta)}</b><span>tempo restante</span></div>
+        <div><b>${vel == null ? '…' : vel.toFixed(1).replace('.', ',') + '×'}</b><span>${vel == null ? 'velocidade' : vel >= 1 ? 'mais rápido que o tempo real' : 'do tempo real (mais lento)'}</span></div>
+        <div><b>${dv ? relogio(lido) : '—'}</b><span>${dv ? 'de ' + relogio(dv) + ' de vídeo lidos' : 'vídeo lido'}</span></div>
+      </div>
+      <div class="etapas">
+        <span class="${etapa2 ? 'ok' : 'on'}">${etapa2 ? '✓' : '1'} Procurar a bola no vídeo todo</span>
+        <span class="${etapa2 ? 'on' : ''}">2 Achar o saque de cada rally</span>
+        <span>${(j.dispositivo||'').replace(/</g,'&lt;') ? '⚙ ' + j.dispositivo.replace(/</g,'&lt;') : ''}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+setInterval(renderAndamento, 1000);
+async function reanalisar(id){
+  if (!confirm('Analisar este vídeo de novo? Os ajustes feitos nos rallys serão substituídos pela nova detecção.')) return;
+  const r = await fetch('/api/jobs/'+id+'/reanalisar',{method:'POST'}); const j = await r.json();
+  if (!r.ok) return toast(j.detail||'Erro'); if (atual&&atual.id===id) fechar(); carregarJobs();
 }
 async function apagar(id){ if (!confirm('Apagar este trabalho? (o vídeo original fora do RallyCut não é apagado)')) return;
   await fetch('/api/jobs/'+id,{method:'DELETE'}); if (atual&&atual.id===id) fechar(); carregarJobs(); }
 setInterval(carregarJobs, 2000); carregarJobs();
 
 // ---------- revisão
-let atual = null, analise = null, segs = [];
+let atual = null, analise = null, segs = [], removidos = [];
 const player = $('#player'), tl = $('#tl');
 async function abrir(id){
   const job = jobsCache.find(j=>j.id===id);
   analise = await (await fetch(`/api/jobs/${id}/analise`)).json();
   atual = job; segs = job.segmentos.map(s=>({...s, ativo: s.ativo!==false}));
+  removidos = (job.removidos || []).map(s=>({...s}));
   $('#review').style.display='block'; $('#rvTitle').textContent = job.nome;
   player.src = `/api/jobs/${id}/video`;
   $('#baixar').style.display='none'; $('#exp').style.display='none';
   formato = Object.assign({proporcao:'original', modo:'cortar', pos:0.5}, job.formato||{}); aplicarFormato();
+  plCfg = Object.assign({antes_saque:0.5, ativo:false, nome_a:'Dupla A', nome_b:'Dupla B', perto:'A', ini_a:0, ini_b:0, set:1, sets_a:0, sets_b:0}, job.placar_cfg||{});
+  mostrarPlCfg();
+  $('#antesSaque').value = plCfg.antes_saque ?? 0.5; $('#antesTxt').textContent = String($('#antesSaque').value).replace('.', ',') + ' s';
   const au = job.audio || {}; $('#vol').value = Math.round((au.volume||1)*100); $('#vento').checked = !!au.vento; aplicarAudio();
   atualizarExport(job); renderSegs(); desenhar();
   $('#review').scrollIntoView({behavior:'smooth'});
@@ -234,20 +433,22 @@ $('#fechar').onclick = fechar;
 
 function renderSegs(){
   segs.sort((a,b)=>a.ini-b.ini);
+  calcularPlacar(); agendarSaques(); agendarSalvar(); placarAoVivo(); renderRemovidos();
   const on = segs.filter(s=>s.ativo), total = on.reduce((a,s)=>a+s.fim-s.ini,0);
   $('#stats').innerHTML = `<div><b>${on.length}</b><span>rallys</span></div><div><b>${fmtDur(total)}</b><span>vídeo final</span></div>
     <div><b>${fmtDur(analise.duracao)}</b><span>vídeo original</span></div><div><b>${Math.round((1-total/analise.duracao)*100)}%</b><span>cortado</span></div>`;
   $('#segBody').innerHTML = segs.map((s,i)=>`<tr class="${s.ativo?'':'off'}" data-i="${i}">
     <td><input type="checkbox" ${s.ativo?'checked':''} onchange="segs[${i}].ativo=this.checked;renderSegs();desenhar()"></td>
-    <td>${i+1}</td>
+    <td title="${(s.fim-s.ini).toFixed(0)} s${s.motivo ? ' · ' + esc(s.motivo) : ''}${s.obs ? ' · ' + esc(s.obs) : ''}">${i+1}<br><span class="ref">${eAce(s) ? 'ace/erro' : (REF[s.saque_ref] || (s.motivo ? 'sem bola no ar' : ''))}</span></td>
     <td><input type="number" step="0.1" value="${s.ini.toFixed(1)}" onchange="mudar(${i},'ini',this.value)"></td>
     <td><input type="number" step="0.1" value="${s.fim.toFixed(1)}" onchange="mudar(${i},'fim',this.value)"></td>
-    <td class="muted">${(s.fim-s.ini).toFixed(0)}s</td>
+    <td>${celulaPlacar(s,i)}</td>
     <td style="white-space:nowrap"><button class="ghost" title="Assistir" onclick="player.currentTime=${s.ini};player.play()">▶</button>
       <button class="ghost" title="Baixar só este rally" onclick="baixarClipe(${i}, this)">⬇</button>
-      <button class="danger" title="Remover" onclick="segs.splice(${i},1);renderSegs();desenhar()">✕</button></td></tr>`).join('');
+      <button class="danger" title="Remover" onclick="removerSeg(${i})">✕</button></td></tr>`).join('');
 }
 function mudar(i,k,v){ v=parseFloat(v); if(isNaN(v)) return; segs[i][k]=Math.max(0,Math.min(analise.duracao,v));
+  if (k === 'ini') segs[i].ini_manual = true;
   if (segs[i].fim<=segs[i].ini) segs[i].fim = segs[i].ini+1; renderSegs(); desenhar(); }
 $('#addSeg').onclick = () => { const t = player.currentTime; segs.push({ini:Math.max(0,t-2), fim:Math.min(analise.duracao,t+8), ativo:true}); renderSegs(); desenhar(); };
 
@@ -261,12 +462,37 @@ function desenhar(){
   const sc = analise.score, dt = analise.passo;
   c.strokeStyle = '#e8b04b'; c.lineWidth = 1.5; c.beginPath();
   sc.forEach((v,i)=>{ const px=x(i*dt), py=H-6-(H-12)*Math.min(1,v); i? c.lineTo(px,py):c.moveTo(px,py); }); c.stroke();
+  c.fillStyle = '#10202c';
+  for (const s of segs){ if (s.saque_t == null || !s.ativo) continue; const px = x(s.saque_t);
+    c.beginPath(); c.moveTo(px-4, 0); c.lineTo(px+4, 0); c.lineTo(px, 7); c.closePath();
+    if (s.saque_ref === 'rede' || s.saque_ref === 'recepcao'){ c.strokeStyle = s.saque_ref === 'recepcao' ? '#e2574c' : '#10202c'; c.lineWidth = 1.5; c.stroke(); } else c.fill(); }
   c.fillStyle = '#e2574c'; c.fillRect(x(player.currentTime)-1, 0, 2, H);
 }
 tl.onclick = e => { const r = tl.getBoundingClientRect(); player.currentTime = (e.clientX-r.left)/r.width*analise.duracao; };
 window.onresize = desenhar;
+function placarAoVivo(){
+  const box = $('#plLive');
+  if (!plCfg.ativo || !segs.length){ box.style.display = 'none'; return; }
+  const t = player.currentTime, ativos = segs.filter(s => s.ativo && s._pl);
+  let p = null;
+  for (const s of ativos){
+    if (t < s.ini) break;
+    const fimDestaque = (s.saque_t != null && s.saque_t >= s.ini ? s.saque_t : s.ini + 1.5) + 2.0;
+    p = t < fimDestaque ? s._pl : {...s._pl, destaque:null};
+    if (s._pl.final && t >= s.fim - 1.2) p = {...s._pl, ...s._pl.final, saque:null};
+  }
+  if (!p && ativos.length) p = {...ativos[0]._pl, destaque:null, saque:null};
+  if (!p){ box.style.display = 'none'; return; }
+  const esc = v => String(v).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const linha = (k, nome, pts) => `<div class="nm"><i class="${p.saque===k?'on':''}"></i>${esc(nome)}</div><div class="pt ${p.destaque===k?'hl':''}">${pts}</div>`;
+  box.innerHTML = `<div class="sb">${linha('A', p.nome_a, p.a)}${linha('B', p.nome_b, p.b)}</div>
+    <div class="st">SET ${p.set}${(p.sets_a||p.sets_b) ? ` · SETS ${p.sets_a}–${p.sets_b}` : ''}</div>`;
+  const h = $('#stage').clientHeight; box.style.fontSize = Math.max(8, h * 0.034) + 'px';
+  box.style.display = 'block';
+}
+
 player.ontimeupdate = () => {
-  desenhar(); if (!segs.length) return;
+  desenhar(); placarAoVivo(); if (!segs.length) return;
   const t = player.currentTime;
   document.querySelectorAll('#segBody tr').forEach(tr => { const s = segs[+tr.dataset.i]; tr.classList.toggle('now', t>=s.ini && t<s.fim); });
   if ($('#soRallys').checked && !player.paused){
@@ -300,6 +526,8 @@ $('#modoSel').onclick = e => { const v=e.target.dataset.v; if(v){ formato.modo=v
 $('#pos').oninput = () => { formato.pos = +$('#pos').value/100; aplicarFormato(); };
 $('#posReset').onclick = () => { formato.pos = 0.5; aplicarFormato(); };
 player.addEventListener('loadedmetadata', aplicarFormato);
+player.addEventListener('seeked', () => placarAoVivo());
+setInterval(() => { if (atual) placarAoVivo(); }, 250);
 window.addEventListener('resize', aplicarFormato);
 
 // ---------- prévia de áudio (Web Audio: o <video> sozinho não passa de 100%)
@@ -329,6 +557,337 @@ $('#vol').oninput = () => { prepararAudio(); aplicarAudio(); };
 $('#vento').onchange = () => { prepararAudio(); aplicarAudio(); };
 $('#volReset').onclick = () => { $('#vol').value = 100; aplicarAudio(); };
 
+// ---------- placar
+let plCfg = {ativo:false, nome_a:'Dupla A', nome_b:'Dupla B', perto:'A', ini_a:0, ini_b:0, set:1, sets_a:0, sets_b:0};
+const outra = t => t==='A' ? 'B' : 'A';
+function mostrarPlCfg(){
+  $('#plAtivo').checked = plCfg.ativo; $('#nomeA').value = plCfg.nome_a; $('#nomeB').value = plCfg.nome_b;
+  $('#iniA').value = plCfg.ini_a; $('#iniB').value = plCfg.ini_b; $('#setsA').value = plCfg.sets_a; $('#setsB').value = plCfg.sets_b;
+  marcar('#setSel', String(plCfg.set));
+}
+function lerPlCfg(){
+  const n = (sel, max) => Math.max(0, Math.min(max, parseInt($(sel).value)||0));
+  plCfg.ativo = $('#plAtivo').checked; plCfg.nome_a = $('#nomeA').value.trim()||'Dupla A'; plCfg.nome_b = $('#nomeB').value.trim()||'Dupla B';
+  plCfg.ini_a = n('#iniA',99); plCfg.ini_b = n('#iniB',99); plCfg.sets_a = n('#setsA',2); plCfg.sets_b = n('#setsB',2);
+  renderSegs();
+}
+['#plAtivo','#nomeA','#nomeB','#iniA','#iniB','#setsA','#setsB'].forEach(sel => $(sel).addEventListener('change', lerPlCfg));
+$('#setSel').onclick = e => { if (e.target.dataset.v){ plCfg.set = +e.target.dataset.v; marcar('#setSel', String(plCfg.set)); renderSegs(); } };
+
+// Regra oficial: set até 21 (3º até 15), 2 de vantagem; troca de lado a cada 7 pontos somados (3º set: a cada 5).
+// Regra: a partir do 2º saque de cada set, o ponto vai para quem está sacando (quem ganha o rally saca o próximo).
+// Set até 21 (tie-break até 15) com 2 de vantagem; troca de lado a cada 7 pontos somados (tie-break: a cada 5).
+// A cada novo set as duplas começam do lado oposto ao do começo do set anterior (pode ser corrigido por set).
+let setsInfo = {};
+const PAUSA_TROCA = 30;       // pausa (s) entre rallys que indica troca de lado
+const REF = {lancamento:'saque', rede:'rede', recepcao:'recepção', no_ar:'bola no ar'};   // segundos parados entre um rally e outro que indicam troca de set
+function calcularPlacar(){
+  // lado do saque achado no refino (análise a 15 quadros/s) vale enquanto o saque estiver dentro do rally
+  segs.forEach(s => { if (s.saque_lado && s.saque_t >= s.ini && s.saque_t <= s.fim){ s.saque = s.saque_lado; s._saqueIni = s.ini; } });
+  const cfgSets = plCfg.sets_cfg || {};
+  let a = plCfg.ini_a, b = plCfg.ini_b, set = plCfg.set, sa = plCfg.sets_a, sb = plCfg.sets_b, semDono = 0;
+  let perto = plCfg.perto, pertoIniSet = plCfg.perto;
+  setsInfo = {[set]: {perto, rally: null, auto: plCfg.perto}};
+  // "saque" poucos segundos depois do fim do rally anterior = continuação do mesmo rally (não vale ponto)
+  // (rally partido em dois é juntado na análise: só quando a bola não parou antes do "saque")
+  segs.forEach(s => { s._cont = false; });
+  const ativos = segs.filter(s=>s.ativo && !s._cont);
+  const num = s => segs.indexOf(s) + 1;
+  // 3º set = tie-break (15, troca a cada 5). Em pelada, do 4º set em diante volta a ser jogo de 21.
+  const regra = n => n === 3 ? {troca:5, alvo:15} : {troca:7, alvo:21};
+  const ladoNovoSet = n => { const c = cfgSets[n] || {}; return (c.perto === 'A' || c.perto === 'B') ? c.perto : outra(pertoIniSet); };
+  // rally em que você marcou à mão o começo do set n (vale só se vier depois do começo do set anterior)
+  const manual = n => { const r = +((cfgSets[n] || {}).rally || 0); const iniAnt = (setsInfo[n-1] || {}).rally || 0;
+                        return r > iniAnt ? r : null; };
+  const quemSaca = (s, mapa) => s.sacador || (s.saque ? (s.saque === 'perto' ? mapa : outra(mapa)) : null);
+  // pausa (s) entre o fim do rally anterior e o começo deste
+  const pausa = ativos.map((s, k) => k ? s.ini - ativos[k-1].fim : 0);
+  let proxTroca = regra(set).troca * (Math.floor((a + b) / regra(set).troca) + 1);
+  const novoSet = (s, n) => {
+    if (a > b) sa++; else if (b > a) sb++;
+    set++; a = 0; b = 0; semDono = 0;
+    setsInfo[set] = {auto: outra(pertoIniSet)};
+    perto = ladoNovoSet(set); pertoIniSet = perto;
+    proxTroca = regra(set).troca;
+    Object.assign(setsInfo[set], {perto, rally: n});
+    s._iniSet = set;
+  };
+  segs.forEach(s => { s._pl = null; s._iniSet = null; s._sacou = null; s._ponto = null; s._troca = false; s._ultimo = false; s._trocaDepois = false; s._pontoFinal = null; s._pontoFinalAuto = false; s._ajusteLado = false; });
+  ativos.forEach((s, k) => {
+    const n = num(s);
+    let ponto = null;            // dupla que ganhou o rally anterior: é quem saca agora
+    if (k === 0){ setsInfo[set].rally = n; s._iniSet = set; }   // 1º saque do jogo: ainda não há ponto
+    else if (Math.max(a, b) >= regra(set).alvo && Math.abs(a - b) >= 2){
+      novoSet(s, n);                                           // placar digitado já fechou o set: este saque abre o próximo
+    } else if (manual(set+1) === n){
+      ponto = a > b ? 'A' : b > a ? 'B' : null;                // set encerrado à mão
+      if (ponto === 'A') a++; else if (ponto === 'B') b++;
+      novoSet(s, n);
+    } else {
+      const {troca, alvo} = regra(set);
+      const total = a + b + semDono + 1;                       // total de pontos contando o deste saque
+      // TROCA DE LADO: acontece a cada 7 (tie-break: 5) pontos, e no vídeo aparece como uma pausa longa.
+      // A pausa manda: se houver uma pausa longa perto do ponto esperado, a troca é nela — assim um ponto
+      // a mais ou a menos na contagem não deixa os lados invertidos pelo resto do set.
+      let trocar = false;
+      if (pausa[k] >= PAUSA_TROCA && Math.abs(total - proxTroca) <= 3) trocar = true;
+      else if (total >= proxTroca){
+        const vemPausa = total - proxTroca < 3 && [1,2,3].some(d => ativos[k+d] && pausa[k+d] >= PAUSA_TROCA);
+        trocar = !vemPausa;
+      }
+      let mapa = trocar ? outra(perto) : perto;
+      // SUA CORREÇÃO ENSINA O LADO: se você disse quem sacou (botão 🏐) ou corrigiu o placar deste rally
+      // (o time que ganhou +1 é quem está sacando), o app ajusta qual dupla está de cada lado a partir daqui.
+      const pm0 = s.placar_manual;
+      let ancora = s.sacador || null;
+      if (!ancora && pm0 && Number.isInteger(pm0.a) && Number.isInteger(pm0.b)){
+        if (pm0.a === a + 1 && pm0.b === b) ancora = 'A';
+        else if (pm0.b === b + 1 && pm0.a === a) ancora = 'B';
+      }
+      if (ancora && s.saque){
+        const pertoCerto = s.saque === 'perto' ? ancora : outra(ancora);
+        if (pertoCerto !== mapa){ mapa = pertoCerto; s._ajusteLado = true; }
+      }
+      // o ponto é SEMPRE de quem está sacando
+      ponto = quemSaca(s, mapa);
+      const lider = a > b ? 'A' : b > a ? 'B' : null;
+      // regra fixa: quem chega a 21 (tie-break 15) com 2 de vantagem fecha o set — o placar nunca passa disso
+      const pontoDeSet = lider && Math.max(a, b) + 1 >= alvo && Math.abs(a - b) + 1 >= 2;
+      // no ponto de set, depois de uma pausa longa, o saque pode já ser do set seguinte (lados invertidos):
+      // lido com os lados do novo set, quem saca é o líder -> foi ele que fechou o set
+      if (pontoDeSet && ponto !== lider && pausa[k] >= PAUSA_TROCA && !s.sacador){
+        const c = cfgSets[set+1] || {};
+        const mapaNovo = (c.perto === 'A' || c.perto === 'B') ? c.perto : outra(pertoIniSet);
+        if (quemSaca(s, mapaNovo) === lider) ponto = lider;
+      }
+      const fechaSet = pontoDeSet && ponto === lider;
+      if (ponto === 'A') a++; else if (ponto === 'B') b++; else semDono++;
+      if (fechaSet) novoSet(s, n);
+      else { perto = mapa; if (trocar){ proxTroca += troca; s._troca = true; } }
+      if (s._ajusteLado) pertoIniSet = (Math.floor((a + b + semDono) / troca) % 2) ? outra(perto) : perto;
+    }
+    // placar digitado por você: vale a partir deste rally e os seguintes continuam a contagem dele
+    const pm = s.placar_manual;
+    if (pm && Number.isInteger(pm.a) && Number.isInteger(pm.b)){
+      a = pm.a; b = pm.b; semDono = 0;
+      const tr = regra(set).troca;
+      proxTroca = tr * (Math.floor((a + b) / tr) + 1);
+    }
+    const sacador = quemSaca(s, perto);
+    s._sacou = sacador;
+    s._ponto = ponto;
+    s._pl = {a, b, set, sets_a: sa, sets_b: sb, saque: sacador, destaque: ponto, nome_a: plCfg.nome_a, nome_b: plCfg.nome_b};
+  });
+  // último rally: não há saque depois dele, então o ponto só entra se você disser quem fez
+  const ult = ativos[ativos.length - 1];
+  if (ult && ult._pl){
+    ult._ultimo = true;
+    // último rally do vídeo: não há saque depois dele. Pela regra "o ponto é de quem está sacando",
+    // o ponto vai para quem sacou este rally (dá para trocar com um clique).
+    const pf = (ult.ponto_final === 'A' || ult.ponto_final === 'B') ? ult.ponto_final : ult._sacou;
+    ult._pontoFinalAuto = !(ult.ponto_final === 'A' || ult.ponto_final === 'B');
+    ult._pontoFinal = pf;
+    if (pf === 'A' || pf === 'B'){
+      if (pf === 'A') a++; else b++;
+      const {troca} = regra(set);
+      ult._pl.final = {a, b, destaque: pf};
+      ult._trocaDepois = (a + b + semDono) % troca === 0;
+    }
+  }
+  let antPl = null;
+  segs.forEach(s => { if (s._pl) antPl = s._pl; else if (s._cont && antPl) s._pl = {...antPl, destaque: null}; });
+  plFinal = {a, b, set, sa, sb};
+  renderSetsTab();
+}
+function renderSetsTab(){
+  const body = $('#setsBody'); if (!body) return;
+  const ini = plCfg.set, cfgSets = plCfg.sets_cfg || {}, linhas = [];
+  for (let n = ini; n <= 3; n++){
+    const info = setsInfo[n] || {}, c = cfgSets[n] || {}, alvo = n === 3 ? 15 : 21;
+    let lado;
+    if (n === ini) lado = `<div class="seg" data-set="${n}"><button data-v="A" class="${plCfg.perto==='A'?'on':''}">${esc(plCfg.nome_a)}</button><button data-v="B" class="${plCfg.perto==='B'?'on':''}">${esc(plCfg.nome_b)}</button></div>`;
+    else {
+      const auto = info.auto ? (info.auto==='A' ? plCfg.nome_a : plCfg.nome_b) : 'inverte';
+      const v = c.perto === 'A' || c.perto === 'B' ? c.perto : 'auto';
+      lado = `<div class="seg" data-set="${n}"><button data-v="auto" class="${v==='auto'?'on':''}" title="Lado contrário ao do começo do set anterior">auto${info.auto ? ' (' + esc(auto.length>10?auto.slice(0,9)+'…':auto) + ')' : ''}</button><button data-v="A" class="${v==='A'?'on':''}">A</button><button data-v="B" class="${v==='B'?'on':''}">B</button></div>`;
+    }
+    const rally = n === ini ? `<span class="muted">${info.rally || 1}</span>`
+      : `<input type="number" min="1" max="${segs.length}" data-rally="${n}" value="${c.rally || ''}" placeholder="${info.rally ? 'auto: ' + info.rally : 'auto'}">`;
+    linhas.push(`<tr><td><b>${n}º</b>${n===3?' <span class="hint">tie-break</span>':''}</td><td>${alvo}</td><td>${lado}</td><td>${rally}</td></tr>`);
+  }
+  body.innerHTML = linhas.join('');
+}
+const esc = v => String(v).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+$('#setsBody').addEventListener('click', e => {
+  const v = e.target.dataset.v, g = e.target.closest('[data-set]'); if (!v || !g) return;
+  const n = +g.dataset.set;
+  if (n === plCfg.set) plCfg.perto = v;
+  else { plCfg.sets_cfg = plCfg.sets_cfg || {}; plCfg.sets_cfg[n] = {...(plCfg.sets_cfg[n]||{}), perto: v}; }
+  renderSegs();
+});
+$('#setsBody').addEventListener('change', e => {
+  const n = e.target.dataset.rally; if (!n) return;
+  const r = parseInt(e.target.value); plCfg.sets_cfg = plCfg.sets_cfg || {};
+  plCfg.sets_cfg[n] = {...(plCfg.sets_cfg[n]||{}), rally: (r >= 1 ? r : null)};
+  renderSegs();
+});
+let plFinal = null;
+function celulaPlacar(s, i){
+  if (!s.ativo || !s._pl) return '<span class="muted">—</span>';
+  if (s._cont) return `<span class="plc">${s._pl.a}×${s._pl.b}</span><br><span class="hint" title="começa poucos segundos depois do rally anterior: é o mesmo rally, não vale ponto. Clique no 🏐 para forçar como saque.">↳ continuação</span> <button class="venc nd" onclick="trocarSacador(${i})">🏐</button>`;
+  const p = s._pl, v = s._sacou, cls = v ? v + (s.sacador ? '' : ' auto') : 'nd';
+  const nome = v === 'A' ? plCfg.nome_a : v === 'B' ? plCfg.nome_b : '?';
+  const dica = (s.sacador ? 'Sacador marcado por você' : v ? `Saque visto do lado ${s.saque==='perto'?'de cá':'de lá'}` + (s.saque_ref === 'rede' ? ' (pela bola passando na rede)' : s.saque_ref === 'recepcao' ? ' (saque não visto: deduzido pela recepção)' : '') : 'Saque não identificado') +
+               ' · clique para trocar quem sacou';
+  const selo = (s._iniSet && Object.keys(setsInfo).length > 1 ? `<span class="set-ini">SET ${s._iniSet}</span><br>` : '') +
+               (s._troca ? `<span class="hint" title="as duplas trocaram de lado antes deste saque">⇄ troca de lado</span><br>` : '');
+  const pt = s._ponto ? ` <span class="hint" title="ponto creditado neste saque">+1 ${s._ponto}</span>` : '';
+  const pfv = s._pontoFinal;
+  const ultimo = s._ultimo ? `<br><span class="hint">último ponto:</span> <button class="venc ${pfv ? pfv + (s._pontoFinalAuto ? ' auto' : '') : 'nd'}" title="Não há saque depois deste rally: o ponto vai para quem sacou. Clique para trocar." onclick="trocarPontoFinal(${i})">${pfv ? esc((pfv==='A'?plCfg.nome_a:plCfg.nome_b).slice(0,10)) : '?'}</button>${p.final ? ` <span class="plc">→ ${p.final.a}×${p.final.b}</span>` : ''}${s._trocaDepois ? ' <span class="hint">⇄</span>' : ''}` : '';
+  const ed = s.placar_manual ? ' manual' : '';
+  const campos = `<span class="plc pled${ed}" title="${s.placar_manual ? 'Placar corrigido por você' : 'Clique para corrigir o placar'} — os rallys seguintes continuam a partir dele"><span class="plt"><label class="tA" title="${esc(plCfg.nome_a)}">${rot('A')}</label><input type="number" min="0" max="99" value="${p.a}" onchange="editarPlacar(${i},'a',this.value)"></span><span class="plx">×</span><span class="plt"><label class="tB" title="${esc(plCfg.nome_b)}">${rot('B')}</label><input type="number" min="0" max="99" value="${p.b}" onchange="editarPlacar(${i},'b',this.value)"></span></span>${s.placar_manual ? ` <button class="ghost mini" title="Voltar ao placar automático" onclick="editarPlacar(${i},null)">↺</button>` : ''}`;
+  return `${selo}${campos}${pt}${ultimo}<br><span class="hint">🏐</span> <button class="venc ${cls}" title="${dica}" onclick="trocarSacador(${i})">${nome.length>10?esc(nome.slice(0,9))+'…':esc(nome)}</button>`;
+}
+// rótulo curto do time em cima do placar: "A" / "B" (ou o nome, se for curto)
+function rot(t){ const n = t === 'A' ? plCfg.nome_a : plCfg.nome_b; const pad = t === 'A' ? 'Dupla A' : 'Dupla B';
+  return esc(!n || n === pad ? t : (n.length > 6 ? n.slice(0, 5) + '…' : n)); }
+function editarPlacar(i, t, v){
+  const s = segs[i];
+  if (t === null){ delete s.placar_manual; renderSegs(); return; }
+  const n = parseInt(v); if (isNaN(n) || n < 0) { renderSegs(); return; }
+  s.placar_manual = {a: s._pl.a, b: s._pl.b, ...(s.placar_manual || {}), [t]: Math.min(99, n)};
+  renderSegs(); desenhar();
+}
+function trocarPontoFinal(i){
+  const s = segs[i];
+  // automático (quem sacou) -> o outro time -> volta ao automático
+  s.ponto_final = s.ponto_final ? null : outra(s._pontoFinal || 'A');
+  renderSegs();
+}
+function removerSeg(i){
+  const s = segs[i]; if (!s) return;
+  s._removidoEm = Date.now();
+  removidos.push(s); segs.splice(i, 1); renderSegs(); desenhar();
+  const t = $('#toast');
+  t.innerHTML = `Rally ${i+1} removido${s.saque_t != null ? ' <b>(tinha saque)</b>' : ''} &nbsp;<button class="ghost mini" onclick="desfazerRemocao()">↶ Desfazer</button>`;
+  t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 7000);
+}
+function desfazerRemocao(){
+  const s = removidos.pop(); if (!s) return;
+  segs.push(s); renderSegs(); desenhar(); $('#toast').style.display = 'none';
+}
+function restaurarSeg(k){
+  const s = removidos.splice(k, 1)[0]; if (!s) return;
+  segs.push(s); renderSegs(); desenhar();
+  toast(`Jogada de ${mmss(s.ini)} devolvida à lista`);
+}
+// ace/erro de saque: sem recepção e o ponto termina logo depois do saque
+const eAce = s => !!s.obs && (s.saque_t == null || s.fim - s.saque_t < 4.5);
+const mmss = t => `${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
+function renderRemovidos(){
+  const box = $('#lixeira'); if (!box) return;
+  box.style.display = removidos.length ? '' : 'none';
+  $('#lixCont').textContent = removidos.length;
+  const ord = removidos.map((s, k) => [s, k]).sort((x, y) => x[0].ini - y[0].ini);
+  $('#lixBody').innerHTML = ord.map(([s, k]) => `<tr>
+    <td>${mmss(s.ini)} – ${mmss(s.fim)}<br><span class="ref">${eAce(s) ? 'ace/erro' : (REF[s.saque_ref] || (s.motivo ? 'sem bola no ar' : ''))}</span></td>
+    <td>${(s.fim - s.ini).toFixed(0)} s</td>
+    <td>${s.saque_t != null ? '<span class="hint">tinha saque</span>' : ''}</td>
+    <td style="white-space:nowrap"><button class="ghost" title="Assistir" onclick="player.currentTime=${s.ini};player.play()">▶</button>
+      <button class="ghost" title="Trazer de volta para a lista" onclick="restaurarSeg(${k})">↩ Restaurar</button></td></tr>`).join('');
+}
+function trocarSacador(i){
+  const s = segs[i], ordem = [null, 'A', 'B'];
+  s.sacador = ordem[(ordem.indexOf(s.sacador || null) + 1) % 3];
+  renderSegs();
+}
+let _tSaques = null;
+function agendarSaques(){
+  clearTimeout(_tSaques);
+  segs.forEach(s => { if (s.saque_lado && s.saque_t >= s.ini && s.saque_t <= s.fim){ s.saque = s.saque_lado; s._saqueIni = s.ini; } });
+  const faltam = segs.filter(s => s._saqueIni !== s.ini);
+  if (!faltam.length || !atual) return;
+  _tSaques = setTimeout(async () => {
+    const lista = segs.filter(s => s._saqueIni !== s.ini);
+    try {
+      const r = await fetch(`/api/jobs/${atual.id}/saques`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({inicios: lista.map(s=>s.ini)})});
+      if (!r.ok) return;
+      const res = await r.json();
+      if (res.some(x => x.certeza === 'sem_dados') && !_avisouSemDados){ _avisouSemDados = true; toast('Este vídeo foi analisado numa versão antiga: processe de novo para o placar automático.'); }
+      lista.forEach((s, k) => { s.saque = res[k].lado; s._saqueIni = s.ini; });
+      renderSegs();
+    } catch(e) {}
+  }, 300);
+}
+let _avisouSemDados = false;
+
+// ---------- início do rally em relação ao saque
+function aplicarAntesSaque(){
+  const x = +$('#antesSaque').value; plCfg.antes_saque = x;
+  $('#antesTxt').textContent = String(x).replace('.', ',') + ' s';
+  segs.sort((a,b)=>a.ini-b.ini);
+  segs.forEach((s, i) => {
+    if (s.lanc == null || s.ini_manual) return;
+    const desejado = Math.max(0, s.lanc - x);
+    const ant = i > 0 ? segs[i-1] : null;
+    if (ant && ant.fim > desejado){
+      // o rally anterior termina depois do começo desejado: encurta o anterior (sem passar do saque dele)
+      const minAnt = (ant.saque_t != null ? ant.saque_t : ant.ini) + 0.5;
+      ant.fim = Math.round(Math.max(minAnt, desejado) * 100) / 100;
+    }
+    s.ini = Math.round(Math.max(desejado, ant ? ant.fim : 0) * 100) / 100;
+    if (s.ini > (s.saque_t != null ? s.saque_t - 0.2 : s.fim - 0.5)) s.ini = Math.round(desejado * 100) / 100;
+  });
+}
+$('#antesSaque').oninput = () => { aplicarAntesSaque(); renderSegs(); desenhar(); };
+
+// ---------- marcações dos pontos (frame inicial, frame final e vencedor)
+function textoMarcacoes(){
+  const fps = (analise && analise.fps) || 30;
+  const f = t => String(Math.round(t * fps)).padStart(4, '0');
+  const nome = t => t === 'A' ? plCfg.nome_a : t === 'B' ? plCfg.nome_b : 'não identificado';
+  const pts = segs.filter(s => s.ativo && !s._cont);
+  const linhas = [`# ${atual ? atual.nome : ''} — ${fps} quadros/s — ${pts.length} pontos`, ''];
+  pts.forEach((s, k) => {
+    // quem venceu o ponto k é quem saca o ponto seguinte; no último, quem fez o último ponto
+    const prox = pts[k + 1];
+    const venc = prox ? (prox._ponto || prox._sacou) : s._pontoFinal;
+    linhas.push(`PONTO ${k + 1}:`, `START FRAME: ${f(s.ini)}`, `END FRAME: ${f(s.fim)}`, `RESULTADO: ${nome(venc)}`, '');
+  });
+  return linhas.join('\n');
+}
+$('#marcacoes').onclick = () => {
+  const txt = textoMarcacoes();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt], {type: 'text/plain;charset=utf-8'}));
+  a.download = (atual ? atual.nome.replace(/\.[^.]+$/, '') : 'jogo') + '_pontos.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  try { navigator.clipboard.writeText(txt); toast('Marcações baixadas e copiadas'); } catch(e) { toast('Marcações baixadas'); }
+};
+
+// ---------- salvar edições automaticamente
+let _tSalvar = null;
+function payload(){
+  return { segmentos: segs.map(s => ({ini:s.ini, fim:s.fim, ativo:s.ativo, sacador:s.sacador||null, ponto_final:s.ponto_final||null,
+                                            placar: s._pl ? {...s._pl, final_em: s._pl.final ? Math.max(0.5, s.fim - s.ini - 1.2) : null, destaque_ate: Math.max(0.5, ((s.saque_t != null && s.saque_t >= s.ini) ? s.saque_t - s.ini : 1.5) + 2.0)} : null,
+                                            lanc:s.lanc, saque_t:s.saque_t, saque_lado:s.saque_lado, saque_ref:s.saque_ref, motivo:s.motivo, obs:s.obs, ini_manual:!!s.ini_manual, placar_manual:s.placar_manual||null})),
+           removidos: removidos.map(s => ({ini:s.ini, fim:s.fim, ativo:s.ativo, sacador:s.sacador||null, ponto_final:s.ponto_final||null,
+                                           lanc:s.lanc, saque_t:s.saque_t, saque_lado:s.saque_lado, saque_ref:s.saque_ref, motivo:s.motivo, obs:s.obs,
+                                           ini_manual:!!s.ini_manual, placar_manual:s.placar_manual||null})),
+           audio: {volume:+$('#vol').value/100, vento:$('#vento').checked},
+           formato: {proporcao:formato.proporcao, modo:formato.modo, pos:formato.pos},
+           placar_cfg: plCfg };
+}
+function agendarSalvar(){
+  clearTimeout(_tSalvar);
+  if (!atual) return;
+  const id = atual.id;
+  _tSalvar = setTimeout(() => fetch(`/api/jobs/${id}/salvar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload())}).catch(()=>{}), 1200);
+}
+['#vol','#vento'].forEach(sel => $(sel).addEventListener('change', agendarSalvar));
+['#propSel','#modoSel'].forEach(sel => $(sel).addEventListener('click', agendarSalvar));
+$('#pos').addEventListener('change', agendarSalvar);
+
 // ---------- baixar um único rally
 async function baixarClipe(i, btn){
   const s = segs[i]; if (!s) return;
@@ -336,7 +895,8 @@ async function baixarClipe(i, btn){
   try {
     const r = await fetch(`/api/jobs/${atual.id}/clipe`, {method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ini:s.ini, fim:s.fim, numero:i+1, audio:{volume:+$('#vol').value/100, vento:$('#vento').checked},
-                            formato:{proporcao:formato.proporcao, modo:formato.modo, pos:formato.pos}})});
+                            formato:{proporcao:formato.proporcao, modo:formato.modo, pos:formato.pos},
+                            placar: (plCfg.ativo && s.ativo && s._pl) ? {...s._pl, destaque_ate: Math.max(0.5, ((s.saque_t != null && s.saque_t >= s.ini) ? s.saque_t - s.ini : 1.5) + 2.0)} : null})});
     if (!r.ok){ let m='Erro ao gerar o rally'; try{ m=(await r.json()).detail||m; }catch(e){} throw new Error(m); }
     const nome = (r.headers.get('content-disposition')||'').match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
     const blob = await r.blob(), url = URL.createObjectURL(blob), a = document.createElement('a');
@@ -348,7 +908,7 @@ async function baixarClipe(i, btn){
 }
 
 $('#exportar').onclick = async () => {
-  const r = await fetch(`/api/jobs/${atual.id}/exportar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({segmentos:segs, audio:{volume:+$('#vol').value/100, vento:$('#vento').checked}, formato:{proporcao:formato.proporcao, modo:formato.modo, pos:formato.pos}})});
+  const r = await fetch(`/api/jobs/${atual.id}/exportar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload())});
   const j = await r.json(); if (!r.ok) return toast(j.detail||'Erro'); atualizarExport(j); carregarJobs();
 };
 function atualizarExport(j){

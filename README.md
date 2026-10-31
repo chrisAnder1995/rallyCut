@@ -13,20 +13,24 @@ Aplicação local que recebe o vídeo do treino de vôlei de praia e gera um nov
    - com "Pular os trechos parados" marcado, o player já toca só os rallys (prévia);
    - **Formato**: Original, 16:9 (1920×1080) ou 4:3 (1440×1080), cortando as laterais (com ajuste de posição) ou mostrando a imagem inteira com fundo desfocado;
    - **Áudio**: volume de 50% a 400% (com limitador para não estourar) e filtro de ruído de vento;
-   - **⬇ em cada rally**: baixa só aquele rally, com o formato e o áudio escolhidos.
-5. Clique em **Gerar vídeo só com rallys** e depois em **Baixar**.
+   - **⬇ em cada rally**: baixa só aquele rally, com o formato e o áudio escolhidos;
+   - **✕ em cada rally**: manda a jogada para **🗑 Jogadas excluídas**, de onde ela pode ser restaurada;
+   - **Placar**: placar automático desenhado no vídeo (regra oficial: sets de 21 com troca de lado a cada 7 pontos, tie-break de 15 com troca a cada 5). O placar de cada rally é editável e a correção ajusta os rallys seguintes;
+   - **📋 Marcações dos pontos**: baixa um .txt com `PONTO n / START FRAME / END FRAME / RESULTADO`.
+5. Clique em **Gerar vídeo só com rallys** e depois em **Baixar**. Uma notificação do Windows avisa quando a análise termina.
 
 Os arquivos ficam na pasta `dados/` (um subdiretório por vídeo). Apagar um trabalho pela página não apaga o vídeo original quando ele foi aberto pelo caminho.
 
 ## Como funciona a detecção
 
-Durante um rally, a bola está **voando**; entre os pontos ela fica na mão do sacador ou parada na areia.
+Cada **ponto** vai do lançamento da bola no saque até a bola cair (`rallycut/pontos.py`).
 
-1. O FFmpeg lê o vídeo a 5 quadros/s em 1280 px de largura.
-2. O modelo YOLO11 (classe *sports ball*) localiza a bola em cada quadro.
-3. Bolas que ficam no mesmo lugar por ~1 s são ignoradas (bolas reservas na areia, bola na mão).
-4. Momentos com bola em movimento são unidos em trechos (tolerando falhas de até 2,5 s), trechos com menos de 3 s são descartados e cada rally ganha 1,5 s de folga antes (saque) e depois.
-5. O corte é feito com precisão de quadro e usa a placa de vídeo para codificar quando existir (NVENC/QuickSync/AMF).
+1. O FFmpeg lê o vídeo a 5 quadros/s em 1280 px e o modelo YOLO11 (classe *sports ball*) localiza a bola. Bolas paradas (reservas na areia, bola na mão) são ignoradas. Isso marca as janelas com jogo.
+2. Cada janela é reanalisada a 10 quadros/s.
+3. **Início**: o lançamento da bola no saque, com 0,5 s de folga (sem a espera antes). Se o sacador estiver fora do quadro, vale a bola cruzando a rede ou 0,6 s antes da recepção.
+4. **Fim**: a bola desce até a altura da areia (calibrada pelas bolas paradas no chão) e não volta a subir em 1,5 s. Defesas, bloqueios e contra-ataques fazem a bola subir de novo e o ponto continua. Mais 0,7 s de folga.
+5. **Placar**: o ponto é sempre de quem saca o próximo rally (o lado do saque é visto pelo tamanho da bola: a que vem do lado de lá cresce na imagem). O placar muda entre o fim da jogada e o próximo saque.
+6. O corte é feito com precisão de quadro e usa a placa de vídeo para codificar quando existir (NVENC/QuickSync/AMF).
 
 Os parâmetros ficam em `rallycut/detector.py` (`Config`). Os principais:
 
@@ -36,7 +40,7 @@ Os parâmetros ficam em `rallycut/detector.py` (`Config`). Os principais:
 | `largura` | 1280 | maior = acha bola menor/mais longe, mais lento |
 | `gap_max` | 2.5 s | aumente se um rally estiver sendo quebrado em dois |
 | `dur_min` | 3.0 s | aumente se aparecerem trechos curtos de bola sendo devolvida |
-| `folga_antes` / `folga_depois` | 1.5 s | margem antes do saque / depois do fim |
+| `antes_do_saque` | 0.5 s | margem antes do lançamento do saque (também ajustável na página) |
 
 ## Dicas de filmagem
 

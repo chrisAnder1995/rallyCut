@@ -84,26 +84,71 @@ def filtro_video(proporcao: str = "original", modo: str = "cortar", pos: float =
     return ["-vf", vf]
 
 
+def _altura_saida(entrada: Path, proporcao: str) -> int:
+    if proporcao in PROPORCOES:
+        return PROPORCOES[proporcao][1]
+    from .detector import _dimensoes_exibidas, _probe
+    return _dimensoes_exibidas(entrada, _probe(entrada))[1]
+
+
 def cortar(entrada: Path, segmentos: list[tuple[float, float]], saida: Path, progresso=None,
            volume: float = 1.0, reduzir_vento: bool = False,
-           proporcao: str = "original", modo: str = "cortar", pos: float = 0.5) -> Path:
-    """Recorta cada segmento (com precisão de quadro) e junta tudo num único MP4."""
+           proporcao: str = "original", modo: str = "cortar", pos: float = 0.5,
+           placares: list[dict | None] | None = None) -> Path:
+    """Recorta cada segmento (com precisão de quadro) e junta tudo num único MP4.
+
+    placares: um dict por segmento (ou None) com o placar a desenhar no canto do vídeo.
+    """
     if not segmentos:
         raise ValueError("Nenhum segmento selecionado.")
     enc = detectar_encoder()
     af = filtro_audio(volume, reduzir_vento)
     vf = filtro_video(proporcao, modo, pos)
+    altura = _altura_saida(entrada, proporcao) if placares and any(placares) else 0
     saida.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=saida.parent) as tmp:
         tmpd = Path(tmp)
         partes = []
         for i, (ini, fim) in enumerate(segmentos):
             parte = tmpd / f"parte_{i:04d}.mp4"
+            pl = placares[i] if placares and i < len(placares) else None
+            if pl:
+                from .placar import desenhar_placar
+                cadeia = vf[1] if vf else "null"
+                margem = max(12, int(altura * 0.025))
+                png = desenhar_placar(pl, altura, tmpd / f"placar_{i:04d}.png")
+                # o placar muda no saque: começa destacando quem acabou de pontuar e, depois de
+                # `destaque_ate` segundos, segue sem destaque até o fim do rally
+                t_troca = float(pl.get("destaque_ate") or 0) if pl.get("destaque") else 0.0
+                t_final = float(pl["final_em"]) if pl.get("final") and pl.get("final_em") is not None else None
+                if t_final is not None and 0 < t_final < fim - ini:
+                    # último rally: no fim dele entra o ponto marcado por você
+                    t_troca = min(t_troca, t_final) if t_troca > 0 else 0.0
+                    png2 = desenhar_placar({**pl, "destaque": None}, altura, tmpd / f"placar_{i:04d}_b.png")
+                    png3 = desenhar_placar({**pl, **pl["final"], "saque": None}, altura, tmpd / f"placar_{i:04d}_c.png")
+                    video = ["-i", str(png), "-i", str(png2), "-i", str(png3), "-filter_complex",
+                             f"[0:v]{cadeia}[base];"
+                             f"[base][1:v]overlay={margem}:{margem}:enable='lt(t,{t_troca:.2f})'[v1];"
+                             f"[v1][2:v]overlay={margem}:{margem}:enable='between(t,{t_troca:.2f},{t_final:.2f})'[v2];"
+                             f"[v2][3:v]overlay={margem}:{margem}:enable='gt(t,{t_final:.2f})'[vout]",
+                             "-map", "[vout]", "-map", "0:a:0?"]
+                elif 0 < t_troca < fim - ini:
+                    png2 = desenhar_placar({**pl, "destaque": None}, altura, tmpd / f"placar_{i:04d}_b.png")
+                    video = ["-i", str(png), "-i", str(png2), "-filter_complex",
+                             f"[0:v]{cadeia}[base];"
+                             f"[base][1:v]overlay={margem}:{margem}:enable='lt(t,{t_troca:.2f})'[v1];"
+                             f"[v1][2:v]overlay={margem}:{margem}:enable='gte(t,{t_troca:.2f})'[vout]",
+                             "-map", "[vout]", "-map", "0:a:0?"]
+                else:
+                    video = ["-i", str(png), "-filter_complex",
+                             f"[0:v]{cadeia}[base];[base][1:v]overlay={margem}:{margem}[vout]",
+                             "-map", "[vout]", "-map", "0:a:0?"]
+            else:
+                video = ["-map", "0:v:0", "-map", "0:a:0?", *vf]
             cmd = [
                 _ffmpeg(), "-v", "error", "-y",
-                "-ss", f"{ini:.3f}", "-i", str(entrada), "-t", f"{fim - ini:.3f}",
-                "-map", "0:v:0", "-map", "0:a:0?",
-                *vf, *enc, "-pix_fmt", "yuv420p", *af,
+                "-ss", f"{ini:.3f}", "-i", str(entrada),
+                *video, "-t", f"{fim - ini:.3f}", *enc, "-pix_fmt", "yuv420p", *af,
                 "-c:a", "aac", "-b:a", "160k", "-ar", "48000",
                 "-avoid_negative_ts", "make_zero", str(parte),
             ]
