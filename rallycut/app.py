@@ -286,7 +286,7 @@ def _seg_valido(job: dict, s: dict) -> dict | None:
                    "sacador": s.get("sacador") if s.get("sacador") in ("A", "B") else None,
                    "ponto_final": s.get("ponto_final") if s.get("ponto_final") in ("A", "B") else None,
                    "placar": _limpar_placar(s.get("placar")), "ini_manual": bool(s.get("ini_manual")),
-                   "fim_manual": bool(s.get("fim_manual"))}
+                   "fim_manual": bool(s.get("fim_manual")), "ativo_manual": bool(s.get("ativo_manual"))}
             pm = s.get("placar_manual")
             if isinstance(pm, dict):
                 try:
@@ -302,7 +302,7 @@ def _seg_valido(job: dict, s: dict) -> dict | None:
                 seg["motivo"] = str(s["motivo"])[:120]
             if s.get("obs"):
                 seg["obs"] = str(s["obs"])[:120]
-            if s.get("saque_ref") in ("lancamento", "rede", "recepcao", "no_ar"):
+            if s.get("saque_ref") in ("lancamento", "rede", "recepcao", "no_ar", "fora"):
                 seg["saque_ref"] = s["saque_ref"]
             return seg
     return None
@@ -326,7 +326,7 @@ def _validar(job: dict, dados: "SegmentosIn") -> dict:
             r = v.get("rally")
             sets_cfg[str(n)] = {"perto": v.get("perto") if v.get("perto") in ("A", "B") else "auto",
                                 "rally": int(r) if isinstance(r, (int, float)) and r >= 1 else None}
-    placar_cfg = {"sets_cfg": sets_cfg, "antes_saque": antes, "fim_modo": "queda" if c.get("fim_modo") == "queda" else "saque", "ativo": bool(c.get("ativo")), "nome_a": str(c.get("nome_a") or "Dupla A")[:24],
+    placar_cfg = {"sets_cfg": sets_cfg, "antes_saque": antes, "fim_ref": "saque" if c.get("fim_ref") == "saque" else "queda", "ativo": bool(c.get("ativo")), "nome_a": str(c.get("nome_a") or "Dupla A")[:24],
                   "nome_b": str(c.get("nome_b") or "Dupla B")[:24], "perto": "B" if c.get("perto") == "B" else "A",
                   "ini_a": max(0, min(99, int(c.get("ini_a") or 0))), "ini_b": max(0, min(99, int(c.get("ini_b") or 0))),
                   "set": max(1, min(3, int(c.get("set") or 1))),

@@ -95,6 +95,21 @@ def _ultima_bola(tr: list[tuple], desde: float, ate: float) -> float | None:
     return pts[-1] if pts else None
 
 
+def _saque_fora_do_quadro(tr: list[tuple], desde: float) -> dict | None:
+    """Sacador fora do quadro: a primeira bola vista já está voando com cara de saque.
+
+    Grande e encolhendo (saque do lado de cá) ou pequena e crescendo (lado de lá), com certeza alta.
+    """
+    from .placar import lado_do_saque
+    pts = [p for p in tr if p[0] >= desde]
+    if len(pts) < 3:
+        return None
+    r = lado_do_saque(pts, pts[0][0] - 0.01, janela=2.0)
+    if r["certeza"] != "alta":
+        return None
+    return {"t": pts[0][0], "lado": r["lado"]}
+
+
 def _lado_pela_bola(tr: list[tuple], desde: float) -> str | None:
     """Saque com o sacador fora do quadro: o lado sai do tamanho da bola nas primeiras aparições.
 
@@ -134,6 +149,13 @@ def pontos_da_janela(fino: list[dict], a: float, b: float, w_rede: float, cfg: C
         no_ar = bola_no_ar(frames_rapidos, a, b, w_rede, cfg)
         if no_ar is not None:
             rc = achar_recepcao(tr, w_rede)
+            fq = None if rc else _saque_fora_do_quadro(tr, a - 0.5)
+            if fq:
+                # saque com o sacador fora do quadro: a bola entra voando -> o saque foi ~0,6 s antes
+                fim = achar_fim(tr, fq["t"] + 0.6, b + 2.5, chao) or _ultima_bola(tr, fq["t"], b + 2.5) or b
+                pontos.append({"lanc": None, "saque_t": fq["t"], "inicio_ref": fq["t"] - 0.6 - FOLGA_INICIO,
+                               "saque_ref": "fora", "saque_lado": fq["lado"], "queda": round(fim, 2), "obs": None})
+                return pontos
             ref_t = rc["t"] if rc else no_ar
             fim = achar_fim(tr, ref_t + 0.3, b + 2.5, chao) or _ultima_bola(tr, ref_t, b + 2.5) or b
             pontos.append({"lanc": None, "saque_t": ref_t, "inicio_ref": ref_t - RECEPCAO_VOLTA,
@@ -182,6 +204,8 @@ def analisar_pontos(video, frames_rapidos: list[dict], duracao: float, cfg: Conf
 
 
 JUNTA_SE = 1.5   # pedaço que começa até 1,5 s depois do fim do anterior é o MESMO rally (não é saque novo)
+SAIU_DO_QUADRO = 8.0   # pedaço SEM saque até 8 s depois do rally anterior: a bola saiu do quadro e o ponto continuou
+SERVE_COMO_SAQUE = ("lancamento", "rede", "recepcao", "fora")
 
 
 def _juntar_pedacos(segs: list[dict]) -> list[dict]:
@@ -193,7 +217,15 @@ def _juntar_pedacos(segs: list[dict]) -> list[dict]:
     segs = sorted(segs, key=lambda s: s["ini"])
     saida: list[dict] = []
     for s in segs:
-        ant = saida[-1] if saida else None
+        ant = next((x for x in reversed(saida) if x.get("ativo")), None)
+        if s.get("ativo") and s.get("saque_ref") not in SERVE_COMO_SAQUE:
+            # sem saque detectado: um rally novo só começa no saque
+            if ant and s["ini"] - ant["fim"] <= SAIU_DO_QUADRO:
+                ant["fim"] = max(ant["fim"], s["fim"])     # a bola saiu do quadro e voltou: o ponto continua
+                ant["voo_fim"] = max(ant.get("voo_fim") or 0, s.get("voo_fim") or 0)
+                ant.pop("obs", None)
+                continue
+            s = {**s, "ativo": False, "motivo": "sem saque detectado (o rally só começa no saque)"}
         if ant and ant.get("ativo") and s.get("ativo"):
             colado = s["ini"] - ant["fim"] <= JUNTA_SE
             t_saque = s.get("lanc") if s.get("lanc") is not None else s.get("saque_t")

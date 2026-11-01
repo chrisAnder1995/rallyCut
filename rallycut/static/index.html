@@ -235,7 +235,7 @@
         </div>
         <div class="row hint" style="margin-top:6px" title="Onde cada rally termina. Rallys com o fim ajustado à mão não mudam.">
           <span>Terminar</span>
-          <div class="seg" id="fimModo"><button data-v="saque">1 s antes do próximo saque</button><button data-v="queda">quando a bola cai</button></div>
+          <div class="seg" id="fimModo"><button data-v="queda">quando a bola cai</button><button data-v="saque">1 s antes do próximo saque</button></div>
         </div>
         <div class="actions">
           <button class="ghost" id="addSeg">+ Rally no ponto atual</button>
@@ -425,13 +425,14 @@ async function abrir(id){
   player.src = `/api/jobs/${id}/video`;
   $('#baixar').style.display='none'; $('#exp').style.display='none';
   formato = Object.assign({proporcao:'original', modo:'cortar', pos:0.5}, job.formato||{}); aplicarFormato();
-  plCfg = Object.assign({antes_saque:0.6, fim_modo:'saque', ativo:false, nome_a:'Dupla A', nome_b:'Dupla B', perto:'A', ini_a:0, ini_b:0, set:1, sets_a:0, sets_b:0}, job.placar_cfg||{});
+  plCfg = Object.assign({antes_saque:0.6, ativo:false, nome_a:'Dupla A', nome_b:'Dupla B', perto:'A', ini_a:0, ini_b:0, set:1, sets_a:0, sets_b:0}, job.placar_cfg||{});
   mostrarPlCfg();
   if (plCfg.antes_saque === 0.5 || plCfg.antes_saque === 1.5) plCfg.antes_saque = 0.6;   // padrão antigo -> novo (0,6 s)
   $('#antesSaque').value = plCfg.antes_saque ?? 0.6;
   // queda da bola (fim da jogada) guardada na análise: recupera para os rallys que não têm mais
   const quedas = new Map((analise.segmentos || []).filter(a => a.voo_fim != null && a.saque_t != null).map(a => [a.saque_t, a.voo_fim]));
   segs.forEach(s => { if (s.voo_fim == null && s.saque_t != null && quedas.has(s.saque_t)) s.voo_fim = quedas.get(s.saque_t); });
+  plCfg.fim_ref = (job.placar_cfg || {}).fim_ref === 'saque' ? 'saque' : 'queda';   // padrão: termina quando a bola cai
   aplicarCortes();
   const au = job.audio || {}; $('#vol').value = Math.round((au.volume||1)*100); $('#vento').checked = !!au.vento; aplicarAudio();
   atualizarExport(job); renderSegs(); desenhar();
@@ -447,8 +448,8 @@ function renderSegs(){
   $('#stats').innerHTML = `<div><b>${on.length}</b><span>rallys</span></div><div><b>${fmtDur(total)}</b><span>vídeo final</span></div>
     <div><b>${fmtDur(analise.duracao)}</b><span>vídeo original</span></div><div><b>${Math.round((1-total/analise.duracao)*100)}%</b><span>cortado</span></div>`;
   $('#segBody').innerHTML = segs.map((s,i)=>`<tr class="${s.ativo?'':'off'}" data-i="${i}">
-    <td><input type="checkbox" ${s.ativo?'checked':''} onchange="segs[${i}].ativo=this.checked;renderSegs();desenhar()"></td>
-    <td title="${(s.fim-s.ini).toFixed(0)} s${s.motivo ? ' · ' + esc(s.motivo) : ''}${s.obs ? ' · ' + esc(s.obs) : ''}">${i+1}<br><span class="ref">${eAce(s) ? 'ace/erro' : (REF[s.saque_ref] || (s.motivo ? 'sem bola no ar' : ''))}</span></td>
+    <td><input type="checkbox" ${s.ativo?'checked':''} onchange="segs[${i}].ativo=this.checked;segs[${i}].ativo_manual=true;renderSegs();desenhar()"></td>
+    <td title="${(s.fim-s.ini).toFixed(0)} s${s.motivo ? ' · ' + esc(s.motivo) : ''}${s.obs ? ' · ' + esc(s.obs) : ''}">${i+1}<br><span class="ref">${eAce(s) ? 'ace/erro' : (!s.ativo && s.motivo) ? (s.motivo.startsWith('sem saque') ? 'sem saque' : 'sem bola no ar') : (REF[s.saque_ref] || '')}</span></td>
     <td><input type="number" step="0.1" value="${s.ini.toFixed(1)}" onchange="mudar(${i},'ini',this.value)"></td>
     <td><input type="number" step="0.1" value="${s.fim.toFixed(1)}" onchange="mudar(${i},'fim',this.value)"></td>
     <td>${celulaPlacar(s,i)}</td>
@@ -460,7 +461,7 @@ function mudar(i,k,v){ v=parseFloat(v); if(isNaN(v)) return; segs[i][k]=Math.max
   if (k === 'ini') segs[i].ini_manual = true;
   if (k === 'fim') segs[i].fim_manual = true;
   if (segs[i].fim<=segs[i].ini) segs[i].fim = segs[i].ini+1; renderSegs(); desenhar(); }
-$('#addSeg').onclick = () => { const t = player.currentTime; segs.push({ini:Math.max(0,t-2), fim:Math.min(analise.duracao,t+8), ativo:true}); renderSegs(); desenhar(); };
+$('#addSeg').onclick = () => { const t = player.currentTime; segs.push({ini:Math.max(0,t-2), fim:Math.min(analise.duracao,t+8), ativo:true, ativo_manual:true, fim_manual:true}); renderSegs(); desenhar(); };
 
 function desenhar(){
   if (!analise) return;
@@ -590,7 +591,7 @@ $('#setSel').onclick = e => { if (e.target.dataset.v){ plCfg.set = +e.target.dat
 // A cada novo set as duplas começam do lado oposto ao do começo do set anterior (pode ser corrigido por set).
 let setsInfo = {};
 const PAUSA_TROCA = 30;       // pausa (s) entre rallys que indica troca de lado
-const REF = {lancamento:'saque', rede:'rede', recepcao:'recepção', no_ar:'bola no ar'};   // segundos parados entre um rally e outro que indicam troca de set
+const REF = {lancamento:'saque', rede:'rede', recepcao:'recepção', no_ar:'bola no ar', fora:'saque fora do quadro'};   // segundos parados entre um rally e outro que indicam troca de set
 function calcularPlacar(){
   // lado do saque achado no refino (análise a 15 quadros/s) vale enquanto o saque estiver dentro do rally
   segs.forEach(s => { if (s.saque_lado && s.saque_t >= s.ini && s.saque_t <= s.fim){ s.saque = s.saque_lado; s._saqueIni = s.ini; } });
@@ -806,7 +807,7 @@ function renderRemovidos(){
   $('#lixCont').textContent = removidos.length;
   const ord = removidos.map((s, k) => [s, k]).sort((x, y) => x[0].ini - y[0].ini);
   $('#lixBody').innerHTML = ord.map(([s, k]) => `<tr>
-    <td>${mmss(s.ini)} – ${mmss(s.fim)}<br><span class="ref">${eAce(s) ? 'ace/erro' : (REF[s.saque_ref] || (s.motivo ? 'sem bola no ar' : ''))}</span></td>
+    <td>${mmss(s.ini)} – ${mmss(s.fim)}<br><span class="ref">${eAce(s) ? 'ace/erro' : (!s.ativo && s.motivo) ? (s.motivo.startsWith('sem saque') ? 'sem saque' : 'sem bola no ar') : (REF[s.saque_ref] || '')}</span></td>
     <td>${(s.fim - s.ini).toFixed(0)} s</td>
     <td>${s.saque_t != null ? '<span class="hint">tinha saque</span>' : ''}</td>
     <td style="white-space:nowrap"><button class="ghost" title="Assistir" onclick="player.currentTime=${s.ini};player.play()">▶</button>
@@ -843,19 +844,37 @@ let _avisouSemDados = false;
 //  fim:    1 s antes do próximo saque — é aí que o ponto é marcado para quem vai sacar.
 //          Limite: no máximo FIM_MAX s depois da bola cair (pausa longa = troca de lado, fim de set, bola longe).
 const FIM_MAX = 20;
+const SAIU_DO_QUADRO = 8;    // trecho SEM saque até 8 s depois do rally anterior = bola saiu do quadro, o ponto continua
 function inicioDoSaque(s){ return s.lanc != null ? s.lanc : s.ini + (plCfg.antes_saque ?? 0.6); }
+const temSaque = s => !!s.sacador || s.lanc != null || ['lancamento', 'rede', 'recepcao', 'fora'].includes(s.saque_ref);
 function aplicarCortes(){
   aplicarAntesSaque();
   segs.sort((a,b)=>a.ini-b.ini);
-  // pedaço colado no rally anterior é a mesma jogada: junta (não é saque novo)
-  for (let i = segs.length - 1; i > 0; i--){
-    const a = segs[i-1], b = segs[i];
-    if (a.ativo && b.ativo && !b.sacador && b.ini - a.fim <= 1.5 && b.ini >= a.ini){
-      a.fim = Math.max(a.fim, b.fim); if (b.voo_fim != null) a.voo_fim = Math.max(a.voo_fim || 0, b.voo_fim);
-      segs.splice(i, 1);
+  // 1) um rally só começa no saque. Trecho sem saque logo depois de um rally é a continuação dele
+  //    (a bola saiu do quadro e voltou); longe de qualquer rally, não é rally.
+  // 2) pedaço com saque colado no rally anterior (até 1,5 s) também é a mesma jogada.
+  const novos = [];
+  for (const s of segs){
+    const ant = [...novos].reverse().find(x => x.ativo);
+    if (s.ativo && ant){
+      const semSaque = !temSaque(s) && s.ini - ant.fim <= SAIU_DO_QUADRO;
+      const colado = !s.sacador && s.ini - ant.fim <= 1.5;
+      if (semSaque || colado){
+        ant.fim = Math.max(ant.fim, s.fim); if (s.voo_fim != null) ant.voo_fim = Math.max(ant.voo_fim || 0, s.voo_fim);
+        delete ant.obs; continue;
+      }
     }
+    if (s.ativo && !temSaque(s) && !s.ativo_manual){ s.ativo = false; s.motivo = 'sem saque detectado (o rally só começa no saque)'; }
+    novos.push(s);
   }
-  if ((plCfg.fim_modo || 'saque') !== 'saque') return;
+  segs.length = 0; segs.push(...novos);
+  if (plCfg.fim_ref !== 'saque'){
+    // fim do rally = quando a bola cai (+0,7 s)
+    segs.forEach(s => { if (!s.fim_manual && s.voo_fim != null){
+      const f = Math.round(Math.max((s.saque_t != null ? s.saque_t : s.ini) + 0.5, s.voo_fim + 0.7) * 100) / 100;
+      if (Math.abs(f - s.fim) > 0.05) s.fim = f; } });
+    return;
+  }
   const ativos = segs.filter(s => s.ativo);
   ativos.forEach((s, k) => {
     const prox = ativos[k + 1];
@@ -868,13 +887,9 @@ function aplicarCortes(){
   });
 }
 $('#fimModo').onclick = e => { const v = e.target.dataset.v; if (!v) return;
-  if (v === 'queda'){
-    // volta ao fim detectado: bola caiu + 0,7 s
-    segs.forEach(s => { if (!s.fim_manual && s.voo_fim != null) s.fim = Math.round(Math.max(s.ini + 0.5, s.voo_fim + 0.7) * 100) / 100; });
-  }
-  plCfg.fim_modo = v; marcar('#fimModo', v); aplicarCortes(); renderSegs(); desenhar(); };
+  plCfg.fim_ref = v; marcar('#fimModo', v); aplicarCortes(); renderSegs(); desenhar(); };
 function aplicarAntesSaque(){
-  const x = +$('#antesSaque').value; plCfg.antes_saque = x; marcar('#fimModo', plCfg.fim_modo || 'saque');
+  const x = +$('#antesSaque').value; plCfg.antes_saque = x; marcar('#fimModo', plCfg.fim_ref || 'queda');
   $('#antesTxt').textContent = String(x).replace('.', ',') + ' s';
   segs.sort((a,b)=>a.ini-b.ini);
   segs.forEach((s, i) => {
@@ -921,7 +936,7 @@ let _tSalvar = null;
 function payload(){
   return { segmentos: segs.map(s => ({ini:s.ini, fim:s.fim, ativo:s.ativo, sacador:s.sacador||null, ponto_final:s.ponto_final||null,
                                             placar: s._pl ? {...s._pl, final_em: s._pl.final ? Math.max(0.5, s.fim - s.ini - 1.2) : null, destaque_ate: Math.max(0.5, ((s.saque_t != null && s.saque_t >= s.ini) ? s.saque_t - s.ini : 1.5) + 2.0)} : null,
-                                            lanc:s.lanc, saque_t:s.saque_t, saque_lado:s.saque_lado, saque_ref:s.saque_ref, motivo:s.motivo, obs:s.obs, ini_manual:!!s.ini_manual, fim_manual:!!s.fim_manual, voo_fim:s.voo_fim, placar_manual:s.placar_manual||null})),
+                                            lanc:s.lanc, saque_t:s.saque_t, saque_lado:s.saque_lado, saque_ref:s.saque_ref, motivo:s.motivo, obs:s.obs, ini_manual:!!s.ini_manual, fim_manual:!!s.fim_manual, ativo_manual:!!s.ativo_manual, voo_fim:s.voo_fim, placar_manual:s.placar_manual||null})),
            removidos: removidos.map(s => ({ini:s.ini, fim:s.fim, ativo:s.ativo, sacador:s.sacador||null, ponto_final:s.ponto_final||null,
                                            lanc:s.lanc, saque_t:s.saque_t, saque_lado:s.saque_lado, saque_ref:s.saque_ref, motivo:s.motivo, obs:s.obs,
                                            ini_manual:!!s.ini_manual, fim_manual:!!s.fim_manual, voo_fim:s.voo_fim, placar_manual:s.placar_manual||null})),
