@@ -590,7 +590,13 @@ function calcularPlacar(){
   setsInfo = {[set]: {perto, rally: null, auto: plCfg.perto}};
   // "saque" poucos segundos depois do fim do rally anterior = continuação do mesmo rally (não vale ponto)
   // (rally partido em dois é juntado na análise: só quando a bola não parou antes do "saque")
+  // rally partido em dois: o pedaço que começa colado no anterior (até 1,5 s) é continuação, não saque novo
+  // (vale para análises antigas; dá para forçar como saque clicando no 🏐)
   segs.forEach(s => { s._cont = false; });
+  { let ant = null;
+    segs.filter(s => s.ativo).sort((x, y) => x.ini - y.ini).forEach(s => {
+      if (ant && !s.sacador && s.ini - ant.fim <= 1.5) s._cont = true;
+      ant = s; }); }
   const ativos = segs.filter(s=>s.ativo && !s._cont);
   const num = s => segs.indexOf(s) + 1;
   // 3º set = tie-break (15, troca a cada 5). Em pelada, do 4º set em diante volta a ser jogo de 21.

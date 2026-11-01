@@ -95,6 +95,19 @@ def _ultima_bola(tr: list[tuple], desde: float, ate: float) -> float | None:
     return pts[-1] if pts else None
 
 
+def _lado_pela_bola(tr: list[tuple], desde: float) -> str | None:
+    """Saque com o sacador fora do quadro: o lado sai do tamanho da bola nas primeiras aparições.
+
+    Sacada do lado de cá, a bola aparece grande e ENCOLHE; sacada do lado de lá, aparece pequena e CRESCE.
+    """
+    from .placar import lado_do_saque
+    pts = [p for p in tr if p[0] >= desde]
+    if len(pts) < 2:
+        return None
+    r = lado_do_saque(pts, pts[0][0] - 0.01, janela=2.0)
+    return r["lado"] if r["certeza"] == "alta" or len(pts) >= 3 else None
+
+
 def pontos_da_janela(fino: list[dict], a: float, b: float, w_rede: float, cfg: Config,
                      frames_rapidos: list[dict], chao: float = HORIZONTE) -> list[dict]:
     tr = _trilha(fino)
@@ -125,7 +138,7 @@ def pontos_da_janela(fino: list[dict], a: float, b: float, w_rede: float, cfg: C
             fim = achar_fim(tr, ref_t + 0.3, b + 2.5, chao) or _ultima_bola(tr, ref_t, b + 2.5) or b
             pontos.append({"lanc": None, "saque_t": ref_t, "inicio_ref": ref_t - RECEPCAO_VOLTA,
                            "saque_ref": "recepcao" if rc else "no_ar",
-                           "saque_lado": ("longe" if rc["lado"] == "perto" else "perto") if rc else None,
+                           "saque_lado": ("longe" if rc["lado"] == "perto" else "perto") if rc else _lado_pela_bola(tr, a - 0.5),
                            "queda": round(fim, 2), "obs": None})
     return pontos
 
@@ -165,7 +178,33 @@ def analisar_pontos(video, frames_rapidos: list[dict], duracao: float, cfg: Conf
             segs.append(seg)
         if progresso:
             progresso((k + 1) / len(janelas))
-    return _limpar(segs)
+    return _limpar(_juntar_pedacos(segs))
+
+
+JUNTA_SE = 1.5   # pedaço que começa até 1,5 s depois do fim do anterior é o MESMO rally (não é saque novo)
+
+
+def _juntar_pedacos(segs: list[dict]) -> list[dict]:
+    """Um rally partido em dois não pode virar dois pontos.
+
+    Se um ponto começa colado no anterior (até JUNTA_SE s) ou o "saque" dele vem menos de PAUSA_ENTRE_PONTOS s
+    depois da bola cair no anterior, é continuação da mesma jogada: junta os dois e mantém o saque do primeiro.
+    """
+    segs = sorted(segs, key=lambda s: s["ini"])
+    saida: list[dict] = []
+    for s in segs:
+        ant = saida[-1] if saida else None
+        if ant and ant.get("ativo") and s.get("ativo"):
+            colado = s["ini"] - ant["fim"] <= JUNTA_SE
+            t_saque = s.get("lanc") if s.get("lanc") is not None else s.get("saque_t")
+            cedo = t_saque is not None and ant.get("voo_fim") is not None and t_saque - ant["voo_fim"] < PAUSA_ENTRE_PONTOS
+            if colado or cedo:
+                ant["fim"] = max(ant["fim"], s["fim"])
+                ant["voo_fim"] = max(ant.get("voo_fim") or 0, s.get("voo_fim") or 0)
+                ant.pop("obs", None)        # teve continuação: não foi ace
+                continue
+        saida.append(s)
+    return saida
 
 
 def _limpar(segs: list[dict]) -> list[dict]:
