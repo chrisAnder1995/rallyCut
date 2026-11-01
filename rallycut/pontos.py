@@ -165,42 +165,110 @@ def pontos_da_janela(fino: list[dict], a: float, b: float, w_rede: float, cfg: C
     return pontos
 
 
+CONFIANCA = {"lancamento": "alta", "rede": "media", "fora": "media", "recepcao": "media", "no_ar": "baixa",
+             "inferido": "baixa"}
+
+
+def _fino(modelo, video, a: float, b: float, cfg: Config, w: int, h: int, duracao: float) -> list[dict]:
+    """Reanalisa um trecho a FPS_FINO quadros/s procurando a bola."""
+    from .detector import CLASSE_BOLA
+    j_ini, j_fim = max(0.0, a - 3.5), min(duracao, b + 2.5)
+    fino, lote, tempos = [], [], []
+    for t, img in _quadros(video, FPS_FINO, cfg.largura, w, h, inicio=j_ini, duracao=j_fim - j_ini):
+        lote.append(img)
+        tempos.append(t + j_ini)
+        if len(lote) == 8:
+            fino += _prever(modelo, lote, tempos, cfg, CLASSE_BOLA)
+            lote, tempos = [], []
+    if lote:
+        fino += _prever(modelo, lote, tempos, cfg, CLASSE_BOLA)
+    return fino
+
+
+def _seg_do_ponto(p: dict, antes_do_saque: float, duracao: float, origem: str = "passagem 1") -> dict:
+    ini = (p["lanc"] - antes_do_saque) if p.get("lanc") is not None else p["inicio_ref"]
+    seg = {"ini": round(max(0.0, ini), 2), "fim": round(min(duracao, p["queda"] + FOLGA_FIM), 2),
+           "ativo": True, "voo_fim": p["queda"], "saque_t": p["saque_t"], "lanc": p.get("lanc"),
+           "saque_lado": p.get("saque_lado"), "saque_ref": p.get("saque_ref"),
+           "confianca": CONFIANCA.get(p.get("saque_ref"), "baixa"), "origem": origem}
+    if p.get("lanc") is None or p.get("saque_ref") != "lancamento":
+        seg["inicio_inferido"] = True     # START_INFERIDO: o começo do saque não foi visto (estimado)
+    if p.get("obs"):
+        seg["obs"] = p["obs"]
+    return seg
+
+
+def _bola_voando(tr: list[tuple], chao: float) -> bool:
+    """Evidência de disputa: a bola VOANDO (alta e se deslocando), não só na mão de alguém andando."""
+    altos = [p for p in tr if p[2] < min(0.35, chao - 0.1)]
+    if len(altos) < 3:
+        return False
+    xs, ys = [p[1] for p in altos], [p[2] for p in altos]
+    return (max(xs) - min(xs)) + (max(ys) - min(ys)) > 0.15
+
+
 def analisar_pontos(video, frames_rapidos: list[dict], duracao: float, cfg: Config, w: int, h: int,
-                    antes_do_saque: float = FOLGA_INICIO, progresso=None) -> list[dict]:
+                    antes_do_saque: float = FOLGA_INICIO, progresso=None, mov: list[float] | None = None) -> list[dict]:
+    """PASSAGEM 1: pontos a partir do saque em cada janela com bola em jogo.
+    PASSAGEM 2: revisa tudo o que ficou FORA dos pontos (jogadores correndo, bola voando) atrás de pontos perdidos.
+    """
     from ultralytics import YOLO
-    from .detector import CLASSE_BOLA, _caminho_modelo
+    from .detector import _caminho_modelo
+    from .revisao import candidatos
 
     modelo = YOLO(_caminho_modelo(cfg.modelo))
     w_rede = calibrar_rede(frames_rapidos)
     chao = calibrar_chao(frames_rapidos, cfg)
     janelas = janelas_de_jogo(frames_rapidos, duracao, cfg)
     segs: list[dict] = []
+    # ---------- passagem 1
     for k, (a, b) in enumerate(janelas):
-        j_ini, j_fim = max(0.0, a - 3.5), min(duracao, b + 2.5)
-        fino, lote, tempos = [], [], []
-        for t, img in _quadros(video, FPS_FINO, cfg.largura, w, h, inicio=j_ini, duracao=j_fim - j_ini):
-            lote.append(img)
-            tempos.append(t + j_ini)
-            if len(lote) == 8:
-                fino += _prever(modelo, lote, tempos, cfg, CLASSE_BOLA)
-                lote, tempos = [], []
-        if lote:
-            fino += _prever(modelo, lote, tempos, cfg, CLASSE_BOLA)
+        fino = _fino(modelo, video, a, b, cfg, w, h, duracao)
         pts = pontos_da_janela(fino, a, b, w_rede, cfg, frames_rapidos, chao)
         if not pts:
             segs.append({"ini": round(max(0.0, a - 1.0), 2), "fim": round(min(duracao, b + 1.0), 2), "ativo": False,
                          "motivo": "sem saque e sem bola no ar (bola sendo passada ou buscada)"})
-        for p in pts:
-            ini = (p["lanc"] - antes_do_saque) if p.get("lanc") is not None else p["inicio_ref"]
-            seg = {"ini": round(max(0.0, ini), 2), "fim": round(min(duracao, p["queda"] + FOLGA_FIM), 2),
-                   "ativo": True, "voo_fim": p["queda"], "saque_t": p["saque_t"], "lanc": p.get("lanc"),
-                   "saque_lado": p.get("saque_lado"), "saque_ref": p.get("saque_ref")}
-            if p.get("obs"):
-                seg["obs"] = p["obs"]
-            segs.append(seg)
+        segs += [_seg_do_ponto(p, antes_do_saque, duracao) for p in pts]
         if progresso:
-            progresso((k + 1) / len(janelas))
-    return _limpar(_juntar_pedacos(segs))
+            progresso(0.8 * (k + 1) / max(1, len(janelas)))
+    segs = _limpar(_juntar_pedacos(segs))
+    # ---------- passagem 2: revisão dos intervalos
+    if mov:
+        cands = candidatos(frames_rapidos, mov, segs, duracao)
+        novos: list[dict] = []
+        for k, c in enumerate(cands):
+            a, b = c["a"], c["b"]
+            fino = _fino(modelo, video, a, b, cfg, w, h, duracao)
+            pts = pontos_da_janela(fino, a, b, w_rede, cfg, frames_rapidos, chao)
+            tr = [p for p in _trilha(fino) if a - 1.0 <= p[0] <= b + 2.5]
+            if pts:
+                for p in pts:
+                    sg = _seg_do_ponto(p, antes_do_saque, duracao, "revisão dos intervalos")
+                    sg["confianca"] = "media" if sg["confianca"] == "alta" else "baixa"
+                    novos.append(sg)
+            elif _bola_voando(tr, chao):
+                # houve disputa (bola voando + jogadores) mas o saque não foi visto: START_INFERIDO
+                t0 = tr[0][0] if tr else a
+                fim = achar_fim(tr, t0 + 0.3, b + 2.5, chao) or (tr[-1][0] if tr else b)
+                novos.append({"ini": round(max(0.0, min(a, t0) - 1.5), 2), "fim": round(min(duracao, fim + FOLGA_FIM), 2),
+                              "ativo": True, "voo_fim": round(fim, 2), "saque_t": round(t0, 2), "lanc": None,
+                              "saque_lado": _lado_pela_bola(tr, t0 - 0.1), "saque_ref": "inferido",
+                              "inicio_inferido": True, "confianca": "baixa", "origem": "revisão dos intervalos"})
+            elif c["mov"] >= 0.6:
+                novos.append({"ini": round(max(0.0, a - 1.5), 2), "fim": round(min(duracao, b + 1.0), 2), "ativo": False,
+                              "motivo": "jogadores em movimento, bola não vista",
+                              "revisar": "possível ponto perdido: jogadores se movimentando como num rally, mas a bola não apareceu"})
+            if progresso:
+                progresso(0.8 + 0.2 * (k + 1) / max(1, len(cands)))
+        if novos:
+            # os trechos revisados substituem os "sem saque" que eles cobrem
+            def cobre(x, y):
+                return x["ini"] < y["fim"] and y["ini"] < x["fim"]
+            segs = [s for s in segs if s.get("ativo") or not any(cobre(s, n) for n in novos)] + novos
+            segs = _limpar(_juntar_pedacos(segs))
+    if progresso:
+        progresso(1.0)
+    return segs
 
 
 JUNTA_SE = 1.5   # pedaço que começa até 1,5 s depois do fim do anterior é o MESMO rally (não é saque novo)
@@ -225,7 +293,11 @@ def _juntar_pedacos(segs: list[dict]) -> list[dict]:
                 ant["voo_fim"] = max(ant.get("voo_fim") or 0, s.get("voo_fim") or 0)
                 ant.pop("obs", None)
                 continue
-            s = {**s, "ativo": False, "motivo": "sem saque detectado (o rally só começa no saque)"}
+            if s.get("saque_ref") in ("no_ar", "inferido"):
+                # houve disputa, mas o saque não foi visto: fica como ponto com START_INFERIDO (não descarta)
+                s = {**s, "inicio_inferido": True, "confianca": "baixa"}
+            else:
+                s = {**s, "ativo": False, "motivo": s.get("motivo") or "sem saque detectado"}
         if ant and ant.get("ativo") and s.get("ativo"):
             colado = s["ini"] - ant["fim"] <= JUNTA_SE
             t_saque = s.get("lanc") if s.get("lanc") is not None else s.get("saque_t")

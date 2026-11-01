@@ -302,8 +302,15 @@ def _seg_valido(job: dict, s: dict) -> dict | None:
                 seg["motivo"] = str(s["motivo"])[:120]
             if s.get("obs"):
                 seg["obs"] = str(s["obs"])[:120]
-            if s.get("saque_ref") in ("lancamento", "rede", "recepcao", "no_ar", "fora"):
+            if s.get("saque_ref") in ("lancamento", "rede", "recepcao", "no_ar", "fora", "inferido"):
                 seg["saque_ref"] = s["saque_ref"]
+            if s.get("confianca") in ("alta", "media", "baixa"):
+                seg["confianca"] = s["confianca"]
+            if s.get("inicio_inferido"):
+                seg["inicio_inferido"] = True
+            for k in ("revisar", "origem"):
+                if s.get(k):
+                    seg[k] = str(s[k])[:160]
             return seg
     return None
 

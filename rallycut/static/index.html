@@ -85,6 +85,15 @@
   #segs input[type=number]{width:66px}
   #segs td{padding:8px 4px}
   #segs .ref{font-size:10px;color:var(--muted);white-space:nowrap}
+  .selo{display:inline-block;font-size:9.5px;font-weight:700;padding:0 5px;border-radius:6px;line-height:15px;white-space:nowrap;margin-top:2px}
+  .selo.inf{background:#e8eef7;color:#3b5b8c} .selo.baixa{background:#fdecea;color:#b4372e}
+  .selo.rev{background:#e9f5ec;color:#2d7a43} .selo.perd{background:#fff3d6;color:#8a5a00}
+  #relat{margin:10px 0 4px;border:1px solid var(--line,#e6dfd2);border-radius:10px;padding:10px 12px;font-size:13px}
+  #relat summary{cursor:pointer;font-weight:700}
+  #relat .nums{display:flex;flex-wrap:wrap;gap:6px 18px;margin:8px 0}
+  #relat .nums b{font-size:18px;margin-right:4px}
+  #relat ul{margin:4px 0 0 0;padding-left:18px} #relat li{margin:2px 0}
+  #relat a{cursor:pointer;color:var(--sea);text-decoration:underline}
   #segs tr.off td{opacity:.45}
   #segs tr.now td{background:#eef6f8}
   .stats{display:flex;gap:22px;margin:4px 0 14px;flex-wrap:wrap}
@@ -173,11 +182,12 @@
       <button class="ghost" id="fechar">Fechar</button>
     </div>
     <div class="stats" id="stats"></div>
+    <details id="relat" open><summary>🔎 Relatório da detecção</summary><div id="relatBody"></div></details>
     <div class="grid">
       <div>
         <div id="stage"><video id="player" controls preload="metadata"></video><div id="plLive"></div></div>
         <canvas id="tl"></canvas>
-        <div class="legend"><span><i style="background:var(--rally)"></i>rally (vai para o vídeo)</span><span><i style="background:var(--rally-off)"></i>descartado</span><span><i style="background:var(--sand)"></i>atividade detectada</span><span>▼ saque &nbsp;▽ pela rede &nbsp;<b style="color:#e2574c">▽</b> pela recepção</span></div>
+        <div class="legend"><span><i style="background:var(--rally)"></i>rally (vai para o vídeo)</span><span><i style="background:var(--rally-off)"></i>descartado</span><span><i style="background:var(--sand)"></i>atividade detectada</span><span><i style="background:rgba(80,70,160,.55)"></i>movimento dos jogadores</span><span><i style="background:rgba(232,176,75,.55)"></i>possível ponto perdido</span><span>▼ saque &nbsp;▽ pela rede &nbsp;<b style="color:#e2574c">▽</b> pela recepção</span></div>
         <div class="actions">
           <label class="row hint"><input type="checkbox" id="soRallys" checked> Pular os trechos parados ao assistir</label>
         </div>
@@ -419,6 +429,7 @@ const player = $('#player'), tl = $('#tl');
 async function abrir(id){
   const job = jobsCache.find(j=>j.id===id);
   analise = await (await fetch(`/api/jobs/${id}/analise`)).json();
+  _limiar = undefined;
   atual = job; segs = job.segmentos.map(s=>({...s, ativo: s.ativo!==false}));
   removidos = (job.removidos || []).map(s=>({...s}));
   $('#review').style.display='block'; $('#rvTitle').textContent = job.nome;
@@ -443,13 +454,13 @@ $('#fechar').onclick = fechar;
 
 function renderSegs(){
   segs.sort((a,b)=>a.ini-b.ini);
-  calcularPlacar(); agendarSaques(); agendarSalvar(); placarAoVivo(); renderRemovidos();
+  calcularPlacar(); agendarSaques(); agendarSalvar(); placarAoVivo(); renderRemovidos(); renderRelatorio();
   const on = segs.filter(s=>s.ativo), total = on.reduce((a,s)=>a+s.fim-s.ini,0);
   $('#stats').innerHTML = `<div><b>${on.length}</b><span>rallys</span></div><div><b>${fmtDur(total)}</b><span>vídeo final</span></div>
     <div><b>${fmtDur(analise.duracao)}</b><span>vídeo original</span></div><div><b>${Math.round((1-total/analise.duracao)*100)}%</b><span>cortado</span></div>`;
   $('#segBody').innerHTML = segs.map((s,i)=>`<tr class="${s.ativo?'':'off'}" data-i="${i}">
     <td><input type="checkbox" ${s.ativo?'checked':''} onchange="segs[${i}].ativo=this.checked;segs[${i}].ativo_manual=true;renderSegs();desenhar()"></td>
-    <td title="${(s.fim-s.ini).toFixed(0)} s${s.motivo ? ' · ' + esc(s.motivo) : ''}${s.obs ? ' · ' + esc(s.obs) : ''}">${i+1}<br><span class="ref">${eAce(s) ? 'ace/erro' : (!s.ativo && s.motivo) ? (s.motivo.startsWith('sem saque') ? 'sem saque' : 'sem bola no ar') : (REF[s.saque_ref] || '')}</span></td>
+    <td title="${(s.fim-s.ini).toFixed(0)} s${s.motivo ? ' · ' + esc(s.motivo) : ''}${s.obs ? ' · ' + esc(s.obs) : ''}">${i+1}<br><span class="ref">${eAce(s) ? 'ace/erro' : (!s.ativo && s.motivo) ? (s.motivo.startsWith('sem saque') ? 'sem saque' : s.revisar ? 'sem bola' : 'sem bola no ar') : (REF[s.saque_ref] || '')}</span>${selos(s)}</td>
     <td><input type="number" step="0.1" value="${s.ini.toFixed(1)}" onchange="mudar(${i},'ini',this.value)"></td>
     <td><input type="number" step="0.1" value="${s.fim.toFixed(1)}" onchange="mudar(${i},'fim',this.value)"></td>
     <td>${celulaPlacar(s,i)}</td>
@@ -473,6 +484,11 @@ function desenhar(){
   const sc = analise.score, dt = analise.passo;
   c.strokeStyle = '#e8b04b'; c.lineWidth = 1.5; c.beginPath();
   sc.forEach((v,i)=>{ const px=x(i*dt), py=H-6-(H-12)*Math.min(1,v); i? c.lineTo(px,py):c.moveTo(px,py); }); c.stroke();
+  if (analise.mov && analise.mov.length){   // movimentação dos jogadores
+    const ord = analise.mov.slice().sort((a,b)=>a-b), mx = Math.max(1e-6, ord[Math.floor(ord.length*0.98)] || 0);
+    c.strokeStyle = 'rgba(80,70,160,.55)'; c.lineWidth = 1; c.beginPath();
+    analise.mov.forEach((v,i)=>{ const px=x(i*dt), py=H-6-(H-12)*Math.min(1,v/mx); i? c.lineTo(px,py):c.moveTo(px,py); }); c.stroke(); }
+  for (const s of segs){ if (!s.ativo && s.revisar){ c.fillStyle = 'rgba(232,176,75,.55)'; c.fillRect(x(s.ini), H-6, Math.max(3, x(s.fim)-x(s.ini)), 6); } }
   c.fillStyle = '#10202c';
   for (const s of segs){ if (s.saque_t == null || !s.ativo) continue; const px = x(s.saque_t);
     c.beginPath(); c.moveTo(px-4, 0); c.lineTo(px+4, 0); c.lineTo(px, 7); c.closePath();
@@ -591,7 +607,7 @@ $('#setSel').onclick = e => { if (e.target.dataset.v){ plCfg.set = +e.target.dat
 // A cada novo set as duplas começam do lado oposto ao do começo do set anterior (pode ser corrigido por set).
 let setsInfo = {};
 const PAUSA_TROCA = 30;       // pausa (s) entre rallys que indica troca de lado
-const REF = {lancamento:'saque', rede:'rede', recepcao:'recepção', no_ar:'bola no ar', fora:'saque fora do quadro'};   // segundos parados entre um rally e outro que indicam troca de set
+const REF = {lancamento:'saque', rede:'rede', recepcao:'recepção', no_ar:'bola no ar', fora:'saque fora do quadro', inferido:'início inferido'};   // segundos parados entre um rally e outro que indicam troca de set
 function calcularPlacar(){
   // lado do saque achado no refino (análise a 15 quadros/s) vale enquanto o saque estiver dentro do rally
   segs.forEach(s => { if (s.saque_lado && s.saque_t >= s.ini && s.saque_t <= s.fim){ s.saque = s.saque_lado; s._saqueIni = s.ini; } });
@@ -800,6 +816,56 @@ function restaurarSeg(k){
 }
 // ace/erro de saque: sem recepção e o ponto termina logo depois do saque
 const eAce = s => !!s.obs && (s.saque_t == null || s.fim - s.saque_t < 4.5);
+// selos de revisão: início inferido, confiança, possível ponto perdido
+// RELATÓRIO: totais, início inferido, baixa confiança, possíveis pontos perdidos e intervalos a revisar
+const INTERVALO_LONGO = 45, PONTO_LONGO = 45;
+function relatorio(){
+  const at = segs.filter(s => s.ativo && !s._cont).sort((a, b) => a.ini - b.ini);
+  const perdidos = segs.filter(s => !s.ativo && s.revisar && !s.ativo_manual);
+  const intervalos = [];
+  const mov = analise.mov || [], dt = analise.passo || 0.2;
+  const movForte = (a, b) => { // fração do intervalo com jogadores se mexendo como num rally
+    if (!mov.length) return null; const limiar = relat_limiar(); if (limiar == null) return null;
+    let n = 0, k = 0; for (let i = Math.floor(a/dt); i <= Math.min(mov.length-1, b/dt); i++){ n++; if (mov[i] > limiar) k++; } return n ? k/n : null; };
+  at.forEach((s, k) => { const p = at[k+1]; if (!p) return; const gap = p.ini - s.fim;
+    if (gap >= INTERVALO_LONGO){ const m = movForte(s.fim + 2, p.ini - 2);
+      intervalos.push({de: s.fim, ate: p.ini, motivo: `intervalo de ${Math.round(gap)} s sem ponto` + (m != null && m > 0.15 ? ` — jogadores em movimento em ${Math.round(m*100)}% do tempo` : '')}); } });
+  at.forEach(s => { if (s.fim - s.ini >= PONTO_LONGO) intervalos.push({de: s.ini, ate: s.fim, motivo: 'clipe longo: verificar se há dois pontos juntos'}); });
+  intervalos.sort((a, b) => a.de - b.de);
+  return {total: at.length, inferidos: at.filter(s => s.inicio_inferido).length, baixa: at.filter(s => s.confianca === 'baixa'),
+          perdidos, intervalos};
+}
+let _limiar = undefined;
+function relat_limiar(){
+  if (_limiar !== undefined) return _limiar;
+  const mov = analise.mov || [], dt = analise.passo || 0.2; if (!mov.length){ _limiar = null; return null; }
+  const dentro = [], fora = [];
+  mov.forEach((v, i) => { const t = i*dt; (segs.some(s => s.ativo && t >= s.ini && t <= s.fim) ? dentro : fora).push(v); });
+  const med = a => { const b = [...a].sort((x, y) => x - y); return b.length ? b[Math.floor(b.length/2)] : 0; };
+  const mi = med(dentro), mo = med(fora); _limiar = (dentro.length > 10 && fora.length > 10 && mi > mo*1.25) ? (mi + mo)/2 : null;
+  return _limiar;
+}
+function renderRelatorio(){
+  const box = $('#relatBody'); if (!box || !analise) return;
+  const r = relatorio();
+  const ir = t => `<a onclick="player.currentTime=${t};player.play()">${mmss(t)}</a>`;
+  const lista = (arr, f) => arr.length ? `<ul>${arr.map(f).join('')}</ul>` : '<div class="hint">nenhum</div>';
+  box.innerHTML = `<div class="nums"><span><b>${r.total}</b>pontos detectados</span><span><b>${r.inferidos}</b>com início inferido</span>
+      <span><b>${r.baixa.length}</b>com baixa confiança</span><span><b>${r.perdidos.length}</b>possíveis pontos perdidos</span>
+      <span><b>${r.intervalos.length}</b>intervalos para revisar</span></div>
+    ${r.baixa.length ? `<div class="hint">Baixa confiança:</div>${lista(r.baixa, s => `<li>${ir(s.ini)} – ${mmss(s.fim)} · ${REF[s.saque_ref] || 'sem saque visto'}</li>`)}` : ''}
+    <div class="hint" style="margin-top:6px">Possíveis pontos perdidos (desmarcados — marque a caixinha se for ponto):</div>${lista(r.perdidos, s => `<li>${ir(s.ini)} – ${mmss(s.fim)} · ${esc(s.revisar)}</li>`)}
+    <div class="hint" style="margin-top:6px">Intervalos que precisam de revisão:</div>${lista(r.intervalos, v => `<li>${ir(v.de)} – ${mmss(v.ate)} · ${esc(v.motivo)}</li>`)}
+    <div class="hint" style="margin-top:6px">O vídeo não tem placar visual para comparar: confira o placar final do set na tabela.</div>`;
+}
+function selos(s){
+  const b = [];
+  if (s.ativo && s.inicio_inferido) b.push('<span class="selo inf" title="START_INFERIDO: o começo do saque não foi visto; o início foi estimado">início inferido</span>');
+  if (s.ativo && s.confianca === 'baixa') b.push('<span class="selo baixa" title="Baixa confiança: confira este ponto">baixa conf.</span>');
+  if (s.origem === 'revisão dos intervalos' && s.ativo) b.push('<span class="selo rev" title="Achado na 2ª passagem (revisão dos intervalos)">2ª passagem</span>');
+  if (!s.ativo && s.revisar) b.push(`<span class="selo perd" title="${esc(s.revisar)}">⚠ revisar</span>`);
+  return b.length ? '<br>' + b.join(' ') : '';
+}
 const mmss = t => `${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
 function renderRemovidos(){
   const box = $('#lixeira'); if (!box) return;
@@ -864,7 +930,13 @@ function aplicarCortes(){
         delete ant.obs; continue;
       }
     }
-    if (s.ativo && !temSaque(s) && !s.ativo_manual){ s.ativo = false; s.motivo = 'sem saque detectado (o rally só começa no saque)'; }
+    // sem saque visível mas com disputa (bola no ar): NÃO descarta — fica como ponto com início inferido, para revisar
+    const comDisputa = ['no_ar', 'inferido'].includes(s.saque_ref);
+    if (!s.ativo && !s.ativo_manual && comDisputa && (s.motivo || '').startsWith('sem saque detectado')){ s.ativo = true; delete s.motivo; }
+    if (s.ativo && !temSaque(s) && !s.ativo_manual){
+      if (comDisputa){ s.inicio_inferido = true; s.confianca = 'baixa'; }
+      else if (s.saque_ref){ s.ativo = false; s.motivo = 'sem saque detectado'; }
+    }
     novos.push(s);
   }
   segs.length = 0; segs.push(...novos);
@@ -918,8 +990,17 @@ function textoMarcacoes(){
     // quem venceu o ponto k é quem saca o ponto seguinte; no último, quem fez o último ponto
     const prox = pts[k + 1];
     const venc = prox ? (prox._ponto || prox._sacou) : s._pontoFinal;
-    linhas.push(`PONTO ${k + 1}:`, `START FRAME: ${f(s.ini)}`, `END FRAME: ${f(s.fim)}`, `RESULTADO: ${nome(venc)}`, '');
+    linhas.push(`PONTO ${k + 1}:`, `START FRAME: ${f(s.ini)}${s.inicio_inferido ? ' (START_INFERIDO)' : ''}`, `END FRAME: ${f(s.fim)}`,
+                `RESULTADO: ${nome(venc)}`, ...(s.confianca === 'baixa' ? ['CONFIANÇA: baixa'] : []), '');
   });
+  const r = relatorio();
+  linhas.push('---------------------------------------------',
+    `TOTAL DE PONTOS DETECTADOS: ${r.total}`,
+    `TOTAL DE PONTOS COM INÍCIO INFERIDO: ${r.inferidos}`,
+    `TOTAL DE PONTOS COM BAIXA CONFIANÇA: ${r.baixa.length}`,
+    `POSSÍVEIS PONTOS PERDIDOS: ${r.perdidos.length}`, ...r.perdidos.map(s => `  - frames ${f(s.ini)}–${f(s.fim)} (${mmss(s.ini)}–${mmss(s.fim)}): ${s.revisar}`),
+    `INTERVALOS QUE PRECISAM DE REVISÃO: ${r.intervalos.length}`, ...r.intervalos.map(v => `  - frames ${f(v.de)}–${f(v.ate)} (${mmss(v.de)}–${mmss(v.ate)}): ${v.motivo}`));
+  if (r.perdidos.length || r.intervalos.length) linhas.push('', 'PARTIDA SINALIZADA PARA REVISÃO.');
   return linhas.join('\n');
 }
 $('#marcacoes').onclick = () => {

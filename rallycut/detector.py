@@ -21,6 +21,7 @@ from pathlib import Path
 import numpy as np
 
 CLASSE_BOLA = 32  # "sports ball" no COCO
+CLASSE_PESSOA = 0  # "person" no COCO (para medir a movimentação dos jogadores)
 
 
 @dataclass
@@ -107,14 +108,18 @@ def detectar_bolas(video: Path, cfg: Config, progresso=None) -> tuple[list[dict]
     lote, tempos = [], []
 
     def processar():
-        resultados = modelo.predict(lote, imgsz=cfg.largura, classes=[CLASSE_BOLA], conf=0.15, verbose=False)
+        resultados = modelo.predict(lote, imgsz=cfg.largura, classes=[CLASSE_BOLA, CLASSE_PESSOA], conf=0.15,
+                                    verbose=False)
         for t, r in zip(tempos, resultados):
             H, W = r.orig_shape
-            bolas = []
-            for c, b in zip(r.boxes.conf.tolist(), r.boxes.xyxy.cpu().numpy().tolist()):
-                bolas.append([round(c, 3), round((b[0] + b[2]) / 2 / W, 4), round((b[1] + b[3]) / 2 / H, 4),
-                              round((b[2] - b[0]) / W, 4)])  # conf, x, y (centro) e largura, em fração da tela
-            frames.append({"t": round(t, 3), "b": bolas})
+            bolas, pessoas = [], []
+            for c, k, b in zip(r.boxes.conf.tolist(), r.boxes.cls.tolist(), r.boxes.xyxy.cpu().numpy().tolist()):
+                if int(k) == CLASSE_BOLA:
+                    bolas.append([round(c, 3), round((b[0] + b[2]) / 2 / W, 4), round((b[1] + b[3]) / 2 / H, 4),
+                                  round((b[2] - b[0]) / W, 4)])  # conf, x, y (centro) e largura, em fração da tela
+                elif c >= 0.35:
+                    pessoas.append(((b[0] + b[2]) / 2 / W, b[3] / H, (b[3] - b[1]) / H))  # x, pé, altura
+            frames.append({"t": round(t, 3), "b": bolas, "_p": pessoas})
         lote.clear()
         tempos.clear()
 
@@ -277,6 +282,10 @@ def analisar(video: Path, cfg: Config | None = None, progresso=None) -> dict:
     if progresso:
         progresso(0.0, e1)
     frames, duracao = detectar_bolas(video, cfg, (lambda p: progresso(p * peso1, e1)) if progresso else None)
+    from .revisao import movimento_jogadores
+    mov = movimento_jogadores(frames)          # movimentação dos jogadores por quadro (corpos/s)
+    for f in frames:
+        f.pop("_p", None)
     segs, score = segmentar(frames, duracao, cfg)
     if cfg.refinar_saque:
         # algoritmo v3: cada ponto começa no lançamento do saque e termina quando a bola cai
@@ -287,8 +296,12 @@ def analisar(video: Path, cfg: Config | None = None, progresso=None) -> dict:
         info = _probe(video)
         w, h = _dimensoes_exibidas(video, info)
         segs = analisar_pontos(video, frames, duracao, cfg, w, h, cfg.antes_do_saque,
-                               progresso=(lambda p: progresso(peso1 + (1 - peso1) * p, e2)) if progresso else None)
+                               progresso=(lambda p: progresso(peso1 + (1 - peso1) * p, e2)) if progresso else None,
+                               mov=mov)
+    from .revisao import relatorio
+    rel = relatorio(segs, mov, frames, duracao)
     if progresso:
         progresso(1.0, "Concluído")
-    return {"duracao": duracao, "fps": _fps(video), "passo": 1 / cfg.fps_analise, "segmentos": segs, "score": score,
-            "config": asdict(cfg), "frames": frames}
+    return {"relatorio": rel, "duracao": duracao, "fps": _fps(video), "passo": 1 / cfg.fps_analise, "segmentos": segs, "score": score,
+            "config": asdict(cfg), "frames": frames,
+            "mov": [round(v, 3) for v in mov]}

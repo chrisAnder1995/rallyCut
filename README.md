@@ -30,7 +30,9 @@ Cada **ponto** vai do lançamento da bola no saque até a bola cair (`rallycut/p
 3. **Início**: um rally só começa quando há um **saque detectado** — o lançamento da bola, a bola cruzando a rede ou a bola entrando no quadro com cara de saque (sacador fora do quadro) — com 0,6 s de folga antes.
 4. **Fim**: quando a bola cai (+0,7 s): ela desce até a altura da areia e não volta a subir em 1,5 s. Se a bola sai do quadro no meio do ponto, o rally **não termina**: o que vier até o próximo saque é continuação da mesma jogada. Na página dá para trocar para "1 s antes do próximo saque".
 5. **Placar**: o ponto é sempre de quem saca o próximo rally (o lado do saque é visto pelo tamanho da bola: a que vem do lado de lá cresce na imagem). O placar muda entre o fim da jogada e o próximo saque.
-6. O corte é feito com precisão de quadro e usa a placa de vídeo para codificar quando existir (NVENC/QuickSync/AMF).
+6. **2ª passagem (revisão dos intervalos)**: tudo o que ficou fora dos pontos é revisado procurando pontos perdidos — jogadores se movimentando como num rally (velocidade das pessoas na quadra, calibrada no próprio vídeo) e bola voando. Disputa sem saque visível vira ponto com **início inferido** e **baixa confiança**; movimento sem bola fica desmarcado como **possível ponto perdido** para você conferir.
+7. **Relatório**: total de pontos, com início inferido, com baixa confiança, possíveis pontos perdidos e intervalos que precisam de revisão (também no .txt das marcações).
+8. O corte é feito com precisão de quadro e usa a placa de vídeo para codificar quando existir (NVENC/QuickSync/AMF).
 
 Os parâmetros ficam em `rallycut/detector.py` (`Config`). Os principais:
 
