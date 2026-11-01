@@ -24,7 +24,7 @@ from .saque import (RECEPCAO_VOLTA, _prever, _trilha, achar_recepcao, achar_saqu
                     calibrar_rede)
 
 FPS_FINO = 10.0
-FOLGA_INICIO = 0.5      # antes do lançamento do saque: preserva o movimento completo, sem a espera
+FOLGA_INICIO = 0.6      # antes do lançamento do saque: preserva o movimento completo, sem a espera
 FOLGA_FIM = 0.7         # depois da bola cair: o encerramento fica evidente
 SOBE_DE_NOVO = 0.12     # a bola voltou a subir de verdade (fração da altura da tela) -> foi defesa, o ponto continua
                         # (bola quicando/rolando na areia sobe bem menos que isso)

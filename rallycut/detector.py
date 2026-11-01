@@ -35,7 +35,7 @@ class Config:
     folga_antes: float = 1.5      # pega o saque (s)
     folga_depois: float = 1.5     # pega o fim do lance (s)
     refinar_saque: bool = True    # reanalisa o começo de cada rally a 15 quadros/s para achar o saque
-    antes_do_saque: float = 0.5   # o corte começa esse tanto antes do lançamento do saque (s)
+    antes_do_saque: float = 0.6   # o corte começa esse tanto antes do lançamento do saque (s)
     pausa_bola_morta: float = 1.0 # bola vista parada por esse tempo depois de voar = fim do rally (s)
     dur_min_fragmento: float = 1.0  # trechos de bola voando mais curtos que isso são ignorados (s)
 

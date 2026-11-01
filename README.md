@@ -27,8 +27,8 @@ Cada **ponto** vai do lançamento da bola no saque até a bola cair (`rallycut/p
 
 1. O FFmpeg lê o vídeo a 5 quadros/s em 1280 px e o modelo YOLO11 (classe *sports ball*) localiza a bola. Bolas paradas (reservas na areia, bola na mão) são ignoradas. Isso marca as janelas com jogo.
 2. Cada janela é reanalisada a 10 quadros/s.
-3. **Início**: o lançamento da bola no saque, com 0,5 s de folga (sem a espera antes). Se o sacador estiver fora do quadro, vale a bola cruzando a rede ou 0,6 s antes da recepção.
-4. **Fim**: a bola desce até a altura da areia (calibrada pelas bolas paradas no chão) e não volta a subir em 1,5 s. Defesas, bloqueios e contra-ataques fazem a bola subir de novo e o ponto continua. Mais 0,7 s de folga.
+3. **Início**: o lançamento da bola no saque, com 0,6 s de folga (sem a espera antes). Se o sacador estiver fora do quadro, vale a bola cruzando a rede ou 0,6 s antes da recepção.
+4. **Fim**: a bola desce até a altura da areia (calibrada pelas bolas paradas no chão) e não volta a subir em 1,5 s. Defesas, bloqueios e contra-ataques fazem a bola subir de novo e o ponto continua. Na página dá para escolher onde o rally termina: 1 s antes do próximo saque (padrão, até 20 s depois da bola cair) ou quando a bola cai (+0,7 s).
 5. **Placar**: o ponto é sempre de quem saca o próximo rally (o lado do saque é visto pelo tamanho da bola: a que vem do lado de lá cresce na imagem). O placar muda entre o fim da jogada e o próximo saque.
 6. O corte é feito com precisão de quadro e usa a placa de vídeo para codificar quando existir (NVENC/QuickSync/AMF).
 
@@ -40,7 +40,7 @@ Os parâmetros ficam em `rallycut/detector.py` (`Config`). Os principais:
 | `largura` | 1280 | maior = acha bola menor/mais longe, mais lento |
 | `gap_max` | 2.5 s | aumente se um rally estiver sendo quebrado em dois |
 | `dur_min` | 3.0 s | aumente se aparecerem trechos curtos de bola sendo devolvida |
-| `antes_do_saque` | 0.5 s | margem antes do lançamento do saque (também ajustável na página) |
+| `antes_do_saque` | 0.6 s | margem antes do lançamento do saque (também ajustável na página) |
 
 ## Dicas de filmagem
 

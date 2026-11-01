@@ -285,14 +285,15 @@ def _seg_valido(job: dict, s: dict) -> dict | None:
             seg = {"ini": round(ini, 2), "fim": round(fim, 2), "ativo": bool(s.get("ativo", True)),
                    "sacador": s.get("sacador") if s.get("sacador") in ("A", "B") else None,
                    "ponto_final": s.get("ponto_final") if s.get("ponto_final") in ("A", "B") else None,
-                   "placar": _limpar_placar(s.get("placar")), "ini_manual": bool(s.get("ini_manual"))}
+                   "placar": _limpar_placar(s.get("placar")), "ini_manual": bool(s.get("ini_manual")),
+                   "fim_manual": bool(s.get("fim_manual"))}
             pm = s.get("placar_manual")
             if isinstance(pm, dict):
                 try:
                     seg["placar_manual"] = {"a": max(0, min(99, int(pm["a"]))), "b": max(0, min(99, int(pm["b"])))}
                 except (KeyError, TypeError, ValueError):
                     pass
-            for k in ("lanc", "saque_t"):
+            for k in ("lanc", "saque_t", "voo_fim"):
                 if isinstance(s.get(k), (int, float)):
                     seg[k] = round(float(s[k]), 2)
             if s.get("saque_lado") in ("perto", "longe"):
@@ -318,14 +319,14 @@ def _validar(job: dict, dados: "SegmentosIn") -> dict:
                "modo": "desfocar" if f.modo == "desfocar" else "cortar",
                "pos": round(min(1.0, max(0.0, f.pos)), 3)}
     c = dados.placar_cfg or {}
-    antes = max(0.0, min(5.0, float(c.get("antes_saque", 1.5) or 0)))
+    antes = round(max(0.0, min(5.0, float(c.get("antes_saque", 0.6) or 0))), 2)
     sets_cfg = {}
     for n, v in (c.get("sets_cfg") or {}).items():
         if str(n) in ("2", "3") and isinstance(v, dict):
             r = v.get("rally")
             sets_cfg[str(n)] = {"perto": v.get("perto") if v.get("perto") in ("A", "B") else "auto",
                                 "rally": int(r) if isinstance(r, (int, float)) and r >= 1 else None}
-    placar_cfg = {"sets_cfg": sets_cfg, "antes_saque": antes, "ativo": bool(c.get("ativo")), "nome_a": str(c.get("nome_a") or "Dupla A")[:24],
+    placar_cfg = {"sets_cfg": sets_cfg, "antes_saque": antes, "fim_modo": "queda" if c.get("fim_modo") == "queda" else "saque", "ativo": bool(c.get("ativo")), "nome_a": str(c.get("nome_a") or "Dupla A")[:24],
                   "nome_b": str(c.get("nome_b") or "Dupla B")[:24], "perto": "B" if c.get("perto") == "B" else "A",
                   "ini_a": max(0, min(99, int(c.get("ini_a") or 0))), "ini_b": max(0, min(99, int(c.get("ini_b") or 0))),
                   "set": max(1, min(3, int(c.get("set") or 1))),
