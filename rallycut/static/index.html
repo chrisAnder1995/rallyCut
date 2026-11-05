@@ -692,15 +692,22 @@ function calcularPlacar(){
       const pm0 = s.placar_manual;
       let ancora = s.sacador || null;
       if (!ancora && pm0 && Number.isInteger(pm0.a) && Number.isInteger(pm0.b)){
+        // quem você disse que fez o ponto aqui é quem está sacando:
+        //  - um time +1 em relação ao placar anterior, ou
+        //  - você tirou o ponto de um time e deu para o outro (o app tinha creditado a dupla errada)
+        const auto = quemSaca(s, mapa), autoA = a + (auto === 'A' ? 1 : 0), autoB = b + (auto === 'B' ? 1 : 0);
+        const da = pm0.a - autoA, db = pm0.b - autoB;
         if (pm0.a === a + 1 && pm0.b === b) ancora = 'A';
         else if (pm0.b === b + 1 && pm0.a === a) ancora = 'B';
+        else if (da === 1 && db === -1) ancora = 'A';
+        else if (db === 1 && da === -1) ancora = 'B';
       }
       if (ancora && s.saque){
         const pertoCerto = s.saque === 'perto' ? ancora : outra(ancora);
         if (pertoCerto !== mapa){ mapa = pertoCerto; s._ajusteLado = true; }
       }
       // o ponto é SEMPRE de quem está sacando
-      ponto = quemSaca(s, mapa);
+      ponto = quemSaca(s, mapa) || ancora;
       const lider = a > b ? 'A' : b > a ? 'B' : null;
       // regra fixa: quem chega a 21 (tie-break 15) com 2 de vantagem fecha o set — o placar nunca passa disso
       const pontoDeSet = lider && Math.max(a, b) + 1 >= alvo && Math.abs(a - b) + 1 >= 2;
@@ -810,7 +817,11 @@ function editarPlacar(i, t, v){
   if (t === null){ delete s.placar_manual; renderSegs(); return; }
   const n = parseInt(v); if (isNaN(n) || n < 0) { renderSegs(); return; }
   s.placar_manual = {a: s._pl.a, b: s._pl.b, ...(s.placar_manual || {}), [t]: Math.min(99, n)};
+  // a correção vale daqui para frente: correções antigas nos rallys SEGUINTES são refeitas a partir desta
+  let n2 = 0;
+  segs.forEach(x => { if (x !== s && x.ini > s.ini && x.placar_manual){ delete x.placar_manual; n2++; } });
   renderSegs(); desenhar();
+  if (n2) toast(`Placar recalculado a partir daqui (${n2} ${n2 > 1 ? 'correções seguintes foram refeitas' : 'correção seguinte foi refeita'})`);
 }
 function trocarPontoFinal(i){
   const s = segs[i];
