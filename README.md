@@ -15,7 +15,7 @@ Aplicação local que recebe o vídeo do treino de vôlei de praia e gera um nov
    - **Áudio**: volume de 50% a 400% (com limitador para não estourar) e filtro de ruído de vento;
    - **⬇ em cada rally**: baixa só aquele rally, com o formato e o áudio escolhidos;
    - **✕ em cada rally**: manda a jogada para **🗑 Jogadas excluídas**, de onde ela pode ser restaurada;
-   - **Placar**: placar automático desenhado no vídeo (regra oficial: sets de 21 com troca de lado a cada 7 pontos, tie-break de 15 com troca a cada 5). O placar de cada rally é editável e a correção ajusta os rallys seguintes;
+   - **Placar**: placar automático desenhado no vídeo (sets de 12, 15, 18 ou 21 pontos — padrão 21 — com troca de lado a cada 1/3 do set: 4, 5, 6 ou 7 pontos; tie-break de 15 com troca a cada 5). O placar de cada rally é editável e a correção ajusta os rallys seguintes;
    - **📋 Marcações dos pontos**: baixa um .txt com `PONTO n / START FRAME / END FRAME / RESULTADO`.
 5. Clique em **Gerar vídeo só com rallys** e depois em **Baixar**. Uma notificação do Windows avisa quando a análise termina.
 

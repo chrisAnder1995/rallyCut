@@ -329,15 +329,18 @@ def _validar(job: dict, dados: "SegmentosIn") -> dict:
     antes = round(max(0.0, min(5.0, float(c.get("antes_saque", 0.6) or 0))), 2)
     sets_cfg = {}
     for n, v in (c.get("sets_cfg") or {}).items():
-        if str(n) in ("2", "3") and isinstance(v, dict):
+        if str(n) in ("1", "2", "3", "4", "5", "6", "7", "8", "9") and isinstance(v, dict):
             r = v.get("rally")
             sets_cfg[str(n)] = {"perto": v.get("perto") if v.get("perto") in ("A", "B") else "auto",
                                 "rally": int(r) if isinstance(r, (int, float)) and r >= 1 else None}
+            if v.get("alvo") in (12, 15, 18, 21):
+                sets_cfg[str(n)]["alvo"] = v["alvo"]
     placar_cfg = {"sets_cfg": sets_cfg, "antes_saque": antes, "fim_ref": "saque" if c.get("fim_ref") == "saque" else "queda", "ativo": bool(c.get("ativo")), "nome_a": str(c.get("nome_a") or "Dupla A")[:24],
                   "nome_b": str(c.get("nome_b") or "Dupla B")[:24], "perto": "B" if c.get("perto") == "B" else "A",
                   "ini_a": max(0, min(99, int(c.get("ini_a") or 0))), "ini_b": max(0, min(99, int(c.get("ini_b") or 0))),
                   "set": max(1, min(3, int(c.get("set") or 1))),
-                  "sets_a": max(0, min(2, int(c.get("sets_a") or 0))), "sets_b": max(0, min(2, int(c.get("sets_b") or 0)))}
+                  "sets_a": max(0, min(2, int(c.get("sets_a") or 0))), "sets_b": max(0, min(2, int(c.get("sets_b") or 0))),
+                  "alvo_set": c.get("alvo_set") if c.get("alvo_set") in (12, 15, 18, 21) else 21}
     return {"segmentos": segs, "removidos": removidos, "audio": audio, "formato": formato, "placar_cfg": placar_cfg}
 
 

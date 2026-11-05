@@ -230,9 +230,10 @@
             <span class="hint">Dupla B</span><input type="text" id="nomeB" value="Dupla B" maxlength="24">
             <span class="hint">Placar inicial (A × B)</span><div class="row"><input type="number" id="iniA" min="0" max="99" value="0"> × <input type="number" id="iniB" min="0" max="99" value="0"></div>
             <span class="hint">O vídeo começa no</span><div class="row"><div class="seg" id="setSel"><button data-v="1" class="on">1º</button><button data-v="2">2º</button><button data-v="3">3º</button></div><span class="hint">set · sets ganhos</span><input type="number" id="setsA" min="0" max="2" value="0"> × <input type="number" id="setsB" min="0" max="2" value="0"></div>
+            <span class="hint">Sets de</span><div class="row"><div class="seg" id="alvoSel"><button data-v="12">12</button><button data-v="15">15</button><button data-v="18">18</button><button data-v="21" class="on">21</button></div><span class="hint" id="alvoInfo">pontos · troca de lado a cada 7</span></div>
           </div>
           <table class="sets-tab"><thead><tr><th>Set</th><th>Até</th><th>Perto da câmera no começo</th><th>Começa no rally</th></tr></thead><tbody id="setsBody"></tbody></table>
-          <div class="hint" style="margin-top:8px">A partir do 2º saque de cada set, o ponto vai para quem está sacando — o placar muda no momento do saque. Regra oficial: sets de 21 com troca de lado a cada 7 pontos; tie-break (3º set) até 15 com troca a cada 5. A cada novo set as duplas começam do lado contrário ao do set anterior — se não foi assim, ou se o set acabou em outro rally, corrija na tabela. Se o app errou quem sacou, clique no 🏐 da lista de rallys para corrigir.</div>
+          <div class="hint" style="margin-top:8px">A partir do 2º saque de cada set, o ponto vai para quem está sacando — o placar muda no momento do saque. Sets de 12, 15, 18 ou 21 pontos (padrão 21), com troca de lado a cada 1/3 do set (4, 5, 6 ou 7 pontos); tie-break (3º set) até 15 com troca a cada 5. A cada novo set as duplas começam do lado contrário ao do set anterior — se não foi assim, ou se o set acabou em outro rally, corrija na tabela. Se o app errou quem sacou, clique no 🏐 da lista de rallys para corrigir.</div>
         </div>
       </div>
       <div>
@@ -591,6 +592,8 @@ function mostrarPlCfg(){
   $('#plAtivo').checked = plCfg.ativo; $('#nomeA').value = plCfg.nome_a; $('#nomeB').value = plCfg.nome_b;
   $('#iniA').value = plCfg.ini_a; $('#iniB').value = plCfg.ini_b; $('#setsA').value = plCfg.sets_a; $('#setsB').value = plCfg.sets_b;
   marcar('#setSel', String(plCfg.set));
+  const al = ALVOS.includes(+plCfg.alvo_set) ? +plCfg.alvo_set : 21;
+  marcar('#alvoSel', String(al)); $('#alvoInfo').textContent = `pontos · troca de lado a cada ${al/3}`;
 }
 function lerPlCfg(){
   const n = (sel, max) => Math.max(0, Math.min(max, parseInt($(sel).value)||0));
@@ -599,6 +602,10 @@ function lerPlCfg(){
   renderSegs();
 }
 ['#plAtivo','#nomeA','#nomeB','#iniA','#iniB','#setsA','#setsB'].forEach(sel => $(sel).addEventListener('change', lerPlCfg));
+$('#alvoSel').onclick = e => { const v = +e.target.dataset.v; if (!v) return;
+  plCfg.alvo_set = v;
+  // o tamanho geral vale para todos os sets que você não ajustou um a um na tabela
+  mostrarPlCfg(); renderSegs(); };
 $('#setSel').onclick = e => { if (e.target.dataset.v){ plCfg.set = +e.target.dataset.v; marcar('#setSel', String(plCfg.set)); renderSegs(); } };
 
 // Regra oficial: set até 21 (3º até 15), 2 de vantagem; troca de lado a cada 7 pontos somados (3º set: a cada 5).
@@ -608,6 +615,16 @@ $('#setSel').onclick = e => { if (e.target.dataset.v){ plCfg.set = +e.target.dat
 let setsInfo = {};
 const PAUSA_TROCA = 30;       // pausa (s) entre rallys que indica troca de lado
 const REF = {lancamento:'saque', rede:'rede', recepcao:'recepção', no_ar:'bola no ar', fora:'saque fora do quadro', inferido:'início inferido'};   // segundos parados entre um rally e outro que indicam troca de set
+// TAMANHO DO SET: 12, 15, 18 ou 21 pontos (padrão 21). A troca de lado é a cada 1/3 do set
+// (12 → 4, 15 → 5, 18 → 6, 21 → 7). O 3º set (tie-break) vai até 15, ou menos se o set escolhido for menor.
+// Cada set pode ter o seu próprio tamanho na tabela de sets.
+const ALVOS = [12, 15, 18, 21];
+function alvoDoSet(n){
+  const c = (plCfg.sets_cfg || {})[n] || {};
+  if (ALVOS.includes(+c.alvo)) return +c.alvo;
+  const base = ALVOS.includes(+plCfg.alvo_set) ? +plCfg.alvo_set : 21;
+  return n === 3 ? Math.min(15, base) : base;
+}
 function calcularPlacar(){
   // lado do saque achado no refino (análise a 15 quadros/s) vale enquanto o saque estiver dentro do rally
   segs.forEach(s => { if (s.saque_lado && s.saque_t >= s.ini && s.saque_t <= s.fim){ s.saque = s.saque_lado; s._saqueIni = s.ini; } });
@@ -627,7 +644,7 @@ function calcularPlacar(){
   const ativos = segs.filter(s=>s.ativo && !s._cont);
   const num = s => segs.indexOf(s) + 1;
   // 3º set = tie-break (15, troca a cada 5). Em pelada, do 4º set em diante volta a ser jogo de 21.
-  const regra = n => n === 3 ? {troca:5, alvo:15} : {troca:7, alvo:21};
+  const regra = n => { const alvo = alvoDoSet(n); return {alvo, troca: alvo / 3}; };
   const ladoNovoSet = n => { const c = cfgSets[n] || {}; return (c.perto === 'A' || c.perto === 'B') ? c.perto : outra(pertoIniSet); };
   // rally em que você marcou à mão o começo do set n (vale só se vier depois do começo do set anterior)
   const manual = n => { const r = +((cfgSets[n] || {}).rally || 0); const iniAnt = (setsInfo[n-1] || {}).rally || 0;
@@ -663,9 +680,10 @@ function calcularPlacar(){
       // A pausa manda: se houver uma pausa longa perto do ponto esperado, a troca é nela — assim um ponto
       // a mais ou a menos na contagem não deixa os lados invertidos pelo resto do set.
       let trocar = false;
-      if (pausa[k] >= PAUSA_TROCA && Math.abs(total - proxTroca) <= 3) trocar = true;
+      const tol = Math.min(3, Math.floor(troca / 2));   // folga para alinhar a troca com a pausa (set de 12: 2 pontos)
+      if (pausa[k] >= PAUSA_TROCA && Math.abs(total - proxTroca) <= tol) trocar = true;
       else if (total >= proxTroca){
-        const vemPausa = total - proxTroca < 3 && [1,2,3].some(d => ativos[k+d] && pausa[k+d] >= PAUSA_TROCA);
+        const vemPausa = total - proxTroca < tol && [1,2,3].slice(0, tol).some(d => ativos[k+d] && pausa[k+d] >= PAUSA_TROCA);
         trocar = !vemPausa;
       }
       let mapa = trocar ? outra(perto) : perto;
@@ -736,7 +754,7 @@ function renderSetsTab(){
   const body = $('#setsBody'); if (!body) return;
   const ini = plCfg.set, cfgSets = plCfg.sets_cfg || {}, linhas = [];
   for (let n = ini; n <= 3; n++){
-    const info = setsInfo[n] || {}, c = cfgSets[n] || {}, alvo = n === 3 ? 15 : 21;
+    const info = setsInfo[n] || {}, c = cfgSets[n] || {}, alvo = alvoDoSet(n);
     let lado;
     if (n === ini) lado = `<div class="seg" data-set="${n}"><button data-v="A" class="${plCfg.perto==='A'?'on':''}">${esc(plCfg.nome_a)}</button><button data-v="B" class="${plCfg.perto==='B'?'on':''}">${esc(plCfg.nome_b)}</button></div>`;
     else {
@@ -746,7 +764,7 @@ function renderSetsTab(){
     }
     const rally = n === ini ? `<span class="muted">${info.rally || 1}</span>`
       : `<input type="number" min="1" max="${segs.length}" data-rally="${n}" value="${c.rally || ''}" placeholder="${info.rally ? 'auto: ' + info.rally : 'auto'}">`;
-    linhas.push(`<tr><td><b>${n}º</b>${n===3?' <span class="hint">tie-break</span>':''}</td><td>${alvo}</td><td>${lado}</td><td>${rally}</td></tr>`);
+    linhas.push(`<tr><td><b>${n}º</b>${n===3?' <span class="hint">tie-break</span>':''}</td><td><select data-alvo="${n}" title="Pontos deste set (troca de lado a cada ${alvo/3})">${ALVOS.map(v => `<option value="${v}" ${v===alvo?'selected':''}>${v}</option>`).join('')}</select></td><td>${lado}</td><td>${rally}</td></tr>`);
   }
   body.innerHTML = linhas.join('');
 }
@@ -759,6 +777,9 @@ $('#setsBody').addEventListener('click', e => {
   renderSegs();
 });
 $('#setsBody').addEventListener('change', e => {
+  if (e.target.dataset.alvo){
+    const k = e.target.dataset.alvo; plCfg.sets_cfg = plCfg.sets_cfg || {};
+    plCfg.sets_cfg[k] = {...(plCfg.sets_cfg[k]||{}), alvo: +e.target.value}; renderSegs(); return; }
   const n = e.target.dataset.rally; if (!n) return;
   const r = parseInt(e.target.value); plCfg.sets_cfg = plCfg.sets_cfg || {};
   plCfg.sets_cfg[n] = {...(plCfg.sets_cfg[n]||{}), rally: (r >= 1 ? r : null)};
