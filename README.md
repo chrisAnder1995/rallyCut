@@ -6,7 +6,7 @@ Aplicação local que recebe o vídeo do treino de vôlei de praia e gera um nov
 
 1. Dê dois cliques em **`instalar.bat`** (só na primeira vez). Ele instala Python 3.12, FFmpeg e as bibliotecas. Se o PC tiver placa NVIDIA, já instala a versão com GPU.
 2. Dê dois cliques em **`iniciar.bat`**. O navegador abre em `http://127.0.0.1:8765`.
-3. Arraste o vídeo para a página **ou** cole o caminho do arquivo (melhor para vídeos grandes, porque não faz cópia).
+3. Arraste um ou **vários vídeos** para a página **ou** cole o caminho dos arquivos (um por linha) ou de uma **pasta** — melhor para vídeos grandes, porque não faz cópia. Vários vídeos viram um **lote**: são analisados um de cada vez, a lista mostra "2/5 vídeos prontos" e a revisão só é liberada quando todos terminarem (com um único aviso).
 4. Quando a análise terminar, clique em **Revisar**:
    - a linha do tempo mostra em azul os trechos que vão para o vídeo final;
    - desmarque, apague, ajuste início/fim ou adicione um rally no ponto atual do player;

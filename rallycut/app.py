@@ -63,13 +63,61 @@ def _atualizar(job_id: str, **campos) -> dict:
         return job
 
 
-def _novo_job(nome: str, video: Path, mover: bool = False) -> dict:
+# ---------------------------------------------------------------- lotes (vários vídeos de uma vez)
+LOTES = DADOS / "_lotes"
+FEITO = ("revisao", "concluido", "erro")
+
+
+def _ler_lote(lote_id: str) -> dict | None:
+    p = LOTES / f"{lote_id}.json"
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+
+
+def _salvar_lote(lote: dict) -> None:
+    LOTES.mkdir(exist_ok=True)
+    (LOTES / f"{lote['id']}.json").write_text(json.dumps(lote, ensure_ascii=False), encoding="utf-8")
+
+
+def _estado_lote(lote: dict) -> dict:
+    """Quantos vídeos do lote já foram analisados. O lote só é liberado quando TODOS terminaram."""
+    jobs = [j for j in listar() if j.get("lote") == lote["id"]]
+    prontos = sum(1 for j in jobs if j["status"] in FEITO)
+    total = max(lote.get("total", 0), len(jobs))
+    return {**lote, "total": total, "recebidos": len(jobs), "prontos": prontos,
+            "liberado": total > 0 and len(jobs) >= total and prontos >= total,
+            "jobs": [j["id"] for j in sorted(jobs, key=lambda j: j["criado"])]}
+
+
+def _verificar_lote(lote_id: str | None) -> bool:
+    """Depois de cada análise: se o lote acabou de ficar completo, avisa uma vez só.
+
+    Retorna True se o vídeo faz parte de um lote ainda não liberado (então não tem aviso individual).
+    """
+    if not lote_id:
+        return False
+    lote = _ler_lote(lote_id)
+    if not lote or lote.get("avisado"):
+        return False
+    est = _estado_lote(lote)
+    if est["liberado"] and not lote.get("avisado"):
+        lote["avisado"] = True
+        _salvar_lote(lote)
+        erros = sum(1 for j in listar() if j.get("lote") == lote_id and j["status"] == "erro")
+        notificar("🏐 Lote pronto para revisar",
+                  f"{est['total']} vídeos analisados" + (f" ({erros} com erro)" if erros else "") + ".",
+                  f"{URL_APP}/#job={est['jobs'][0]}" if est["jobs"] else URL_APP)
+    return True
+
+
+def _novo_job(nome: str, video: Path, mover: bool = False, lote: str | None = None) -> dict:
     job_id = uuid.uuid4().hex[:12]
     (DADOS / job_id).mkdir()
     if mover:  # upload: o vídeo passa a morar na pasta do trabalho
         video = video.replace(DADOS / job_id / nome)
     job = {"id": job_id, "nome": nome, "video": str(video), "criado": time.time(),
            "status": "na_fila", "etapa": "Aguardando", "progresso": 0.0, "erro": None}
+    if lote and _ler_lote(lote):
+        job["lote"] = lote
     _salvar(job)
     _fila.append(job_id)
     _evento.set()
@@ -90,7 +138,9 @@ def _worker() -> None:
                     _analisar(job)
             except Exception as e:  # noqa: BLE001
                 traceback.print_exc()
-                _atualizar(job_id, status="erro", erro=str(e))
+                job = _atualizar(job_id, status="erro", erro=str(e))
+                if _verificar_lote(job.get("lote")):
+                    continue
                 notificar("⚠️ RallyCut: algo deu errado", f"{job.get('nome', '')}: {str(e)[:120]}", f"{URL_APP}/#job={job_id}")
         _evento.clear()
 
@@ -132,6 +182,8 @@ def _analisar(job: dict) -> None:
     _atualizar(jid, status="revisao", etapa="Pronto para revisar", progresso=1.0, eta=None,
                tempo_analise=round(time.time() - t0, 1), duracao=res["duracao"], segmentos=res["segmentos"], removidos=[])
     n = sum(1 for s in res["segmentos"] if s.get("ativo", True))
+    if _verificar_lote(job.get("lote")):
+        return            # vídeo de lote: o aviso sai uma vez só, quando todos estiverem prontos
     notificar("🏐 Pronto para revisar", f"{job['nome']}: {n} rallys encontrados em {_tempo(time.time() - t0)}.",
               f"{URL_APP}/#job={jid}")
 
@@ -187,19 +239,74 @@ async def upload(request: Request):
     except BaseException:
         destino.unlink(missing_ok=True)
         raise
-    return _novo_job(nome, destino, mover=True)
+    return _novo_job(nome, destino, mover=True, lote=request.headers.get("x-lote") or None)
+
+
+class LoteIn(BaseModel):
+    total: int
+    nomes: list[str] = []
+
+
+@app.post("/api/lotes")
+def lote_criar(dados: LoteIn):
+    """Abre um lote antes de enviar vários vídeos: eles são analisados um a um e liberados juntos."""
+    lote = {"id": uuid.uuid4().hex[:10], "criado": time.time(), "total": max(1, min(200, dados.total)),
+            "nomes": [str(n)[:120] for n in dados.nomes[:200]]}
+    _salvar_lote(lote)
+    return lote
+
+
+@app.post("/api/lotes/{lote_id}/falhou")
+def lote_falhou(lote_id: str):
+    """Um envio do lote falhou: o lote passa a esperar um vídeo a menos."""
+    lote = _ler_lote(lote_id)
+    if not lote:
+        raise HTTPException(404, "Lote não encontrado")
+    lote["total"] = max(0, lote["total"] - 1)
+    _salvar_lote(lote)
+    _verificar_lote(lote_id)
+    return _estado_lote(lote)
+
+
+@app.get("/api/lotes")
+def lote_listar():
+    if not LOTES.exists():
+        return []
+    lotes = [_estado_lote(json.loads(p.read_text(encoding="utf-8"))) for p in LOTES.glob("*.json")]
+    return sorted([lt for lt in lotes if lt["recebidos"] or lt["total"]], key=lambda lt: lt["criado"], reverse=True)
+
+
+VIDEOS = (".mp4", ".mov", ".m4v", ".avi", ".mkv")
 
 
 class CaminhoIn(BaseModel):
-    caminho: str
+    caminho: str = ""
+    caminhos: list[str] = []
 
 
 @app.post("/api/caminho")
 def por_caminho(dados: CaminhoIn):
-    p = Path(dados.caminho.strip().strip('"'))
-    if not p.is_file():
-        raise HTTPException(400, f"Arquivo não encontrado: {p}")
-    return _novo_job(p.name, p)
+    """Um ou vários caminhos (um por linha) ou uma PASTA: todos os vídeos dela viram um lote."""
+    brutos = [c for c in ([dados.caminho] + list(dados.caminhos)) for c in c.splitlines()]
+    arquivos: list[Path] = []
+    for c in brutos:
+        c = c.strip().strip('"').strip()
+        if not c:
+            continue
+        p = Path(c)
+        if p.is_dir():
+            arquivos += sorted(f for f in p.iterdir() if f.is_file() and f.suffix.lower() in VIDEOS
+                               and not f.stem.endswith(("_rallys", "_rallys_16x9", "_rallys_4x3")))
+        elif p.is_file():
+            arquivos.append(p)
+        else:
+            raise HTTPException(400, f"Arquivo ou pasta não encontrado: {p}")
+    if not arquivos:
+        raise HTTPException(400, "Nenhum vídeo encontrado.")
+    if len(arquivos) == 1:
+        return {"jobs": [_novo_job(arquivos[0].name, arquivos[0])], "lote": None}
+    lote = lote_criar(LoteIn(total=len(arquivos), nomes=[f.name for f in arquivos]))
+    return {"jobs": [_novo_job(f.name, f, lote=lote["id"]) for f in arquivos], "lote": lote}
 
 
 @app.get("/api/config")
@@ -455,7 +562,16 @@ def download(job_id: str):
 def apagar(job_id: str):
     import shutil
     d = _dir(job_id)
-    if _ler(job_id)["status"] in ("analisando", "exportando"):
+    job = _ler(job_id)
+    if job["status"] in ("analisando", "exportando"):
         raise HTTPException(409, "Aguarde o processamento terminar")
+    if job_id in _fila:
+        _fila.remove(job_id)
     shutil.rmtree(d)
+    if job.get("lote"):          # o lote passa a esperar um vídeo a menos
+        lote = _ler_lote(job["lote"])
+        if lote:
+            lote["total"] = max(0, lote["total"] - 1)
+            _salvar_lote(lote)
+            _verificar_lote(lote["id"])
     return {"ok": True}

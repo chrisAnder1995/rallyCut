@@ -22,6 +22,9 @@
   .drop{border:2px dashed var(--line);border-radius:12px;padding:34px;text-align:center;cursor:pointer;transition:.15s}
   .drop.over,.drop:hover{border-color:var(--sea);background:#eef6f8}
   .drop strong{color:var(--sea)}
+  tr.lote td{background:#f3f8fa;border-top:2px solid var(--line)}
+  tr.emlote td:first-child{padding-left:22px}
+  button[disabled]{opacity:.55;cursor:not-allowed}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   input[type=text],input[type=number]{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;background:#fff}
   input[type=text]{flex:1;min-width:240px}
@@ -159,17 +162,17 @@
   <section class="card" id="novo">
     <h2>Novo vídeo</h2>
     <div class="drop" id="drop">
-      <div><strong>Arraste o vídeo aqui</strong> ou clique para escolher</div>
-      <div class="hint">MP4/MOV do celular, até vários GB</div>
-      <input type="file" id="file" accept="video/*" hidden>
+      <div><strong>Arraste os vídeos aqui</strong> ou clique para escolher</div>
+      <div class="hint">Um ou vários de uma vez (MP4/MOV do celular, até vários GB cada). Vários vídeos viram um lote: são analisados um a um e liberados juntos.</div>
+      <input type="file" id="file" accept="video/*" multiple hidden>
     </div>
     <div id="up" style="display:none;margin-top:14px">
       <div class="row" style="justify-content:space-between"><span id="upname"></span><span id="uppct" class="muted"></span></div>
       <div class="bar"><i id="upbar"></i></div>
     </div>
-    <div class="or">ou, para não copiar o arquivo, cole o caminho do vídeo no computador:</div>
+    <div class="or">ou, para não copiar os arquivos, cole o caminho do vídeo no computador — um por linha, ou o caminho de uma <b>pasta</b> para analisar todos os vídeos dela:</div>
     <div class="row">
-      <input type="text" id="caminho" placeholder="C:\Users\...\Videos\treino.mp4">
+      <textarea id="caminho" rows="2" style="flex:1;resize:vertical;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px" placeholder="C:\Users\...\Videos\peladas\05-11-2026\treino.mp4&#10;ou C:\Users\...\Videos\peladas\05-11-2026"></textarea>
       <button id="btnCaminho">Processar</button>
     </div>
   </section>
@@ -281,21 +284,49 @@ const drop = $('#drop'), file = $('#file');
 drop.onclick = () => file.click();
 drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
 drop.ondragleave = () => drop.classList.remove('over');
-drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) enviar(e.dataTransfer.files[0]); };
-file.onchange = () => file.files[0] && enviar(file.files[0]);
-function enviar(f){
-  $('#up').style.display='block'; $('#upname').textContent = f.name;
-  const xhr = new XMLHttpRequest();
-  xhr.open('POST','/api/upload'); xhr.setRequestHeader('X-Filename', encodeURIComponent(f.name).replace(/%20/g,' '));
-  xhr.upload.onprogress = e => { const p = e.loaded/e.total*100; $('#upbar').style.width=p+'%'; $('#uppct').textContent = p.toFixed(0)+'%'; };
-  xhr.onload = () => { $('#up').style.display='none'; file.value=''; if (xhr.status<300){ toast('Vídeo enviado. Analisando…'); carregarJobs(); } else toast('Falha no envio'); };
-  xhr.onerror = () => toast('Falha no envio');
-  xhr.send(f);
+const ehVideo = f => /^video\//.test(f.type) || /\.(mp4|mov|m4v|avi|mkv)$/i.test(f.name);
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); enviarVarios([...e.dataTransfer.files].filter(ehVideo)); };
+file.onchange = () => { enviarVarios([...file.files]); file.value = ''; };
+let enviando = false;
+// vários vídeos: abre um LOTE, envia um de cada vez (cada um começa a ser analisado assim que chega)
+async function enviarVarios(fs){
+  if (!fs.length) return toast('Nenhum vídeo encontrado');
+  if (enviando) return toast('Aguarde o envio atual terminar');
+  enviando = true;
+  let lote = null;
+  if (fs.length > 1){
+    const r = await fetch('/api/lotes', {method:'POST', headers:{'Content-Type':'application/json'},
+                                          body: JSON.stringify({total: fs.length, nomes: fs.map(f => f.name)})});
+    lote = (await r.json()).id;
+  }
+  let ok = 0;
+  for (let i = 0; i < fs.length; i++){
+    const sucesso = await enviar(fs[i], lote, fs.length > 1 ? `(${i+1}/${fs.length}) ` : '');
+    if (sucesso) ok++; else if (lote) await fetch(`/api/lotes/${lote}/falhou`, {method:'POST'});
+    carregarJobs();
+  }
+  enviando = false;
+  toast(fs.length > 1 ? `${ok} de ${fs.length} vídeos enviados. Eles ficam liberados quando todos forem analisados.` : (ok ? 'Vídeo enviado. Analisando…' : 'Falha no envio'));
+}
+function enviar(f, lote, prefixo){
+  return new Promise(res => {
+    $('#up').style.display='block'; $('#upname').textContent = (prefixo || '') + f.name;
+    $('#upbar').style.width = '0%'; $('#uppct').textContent = '0%';
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST','/api/upload'); xhr.setRequestHeader('X-Filename', encodeURIComponent(f.name).replace(/%20/g,' '));
+    if (lote) xhr.setRequestHeader('X-Lote', lote);
+    xhr.upload.onprogress = e => { const p = e.loaded/e.total*100; $('#upbar').style.width=p+'%'; $('#uppct').textContent = p.toFixed(0)+'%'; };
+    xhr.onload = () => { $('#up').style.display='none'; res(xhr.status < 300); };
+    xhr.onerror = () => { $('#up').style.display='none'; res(false); };
+    xhr.send(f);
+  });
 }
 $('#btnCaminho').onclick = async () => {
   const r = await fetch('/api/caminho',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({caminho:$('#caminho').value})});
   const j = await r.json(); if (!r.ok) return toast(j.detail || 'Erro');
-  $('#caminho').value=''; toast('Analisando…'); carregarJobs();
+  $('#caminho').value='';
+  toast(j.lote ? `${j.jobs.length} vídeos na fila. Eles ficam liberados quando todos forem analisados.` : 'Analisando…');
+  carregarJobs();
 };
 
 // ---------- lista
@@ -349,12 +380,30 @@ $('#avisoTeste').onclick = async () => {
 };
 carregarAvisos();
 
+let lotesCache = [];
+const loteAvisado = {};
+const loteDe = j => j.lote ? lotesCache.find(l => l.id === j.lote) : null;
+const bloqueado = j => { const l = loteDe(j); return !!(l && !l.liberado); };   // lote ainda não liberado
+function avisarLote(l){
+  if (!avisosLigados) return;
+  const box = $('#pronto');
+  box.innerHTML = `<b>🏐 Lote pronto para revisar</b><div class="hint">${l.total} vídeos analisados</div>
+    <div class="actions" style="margin-top:10px">${l.jobs.length ? `<button onclick="abrir('${l.jobs[0]}');fecharPronto()">Revisar o primeiro</button>` : ''}
+      <button class="ghost" onclick="fecharPronto()">Fechar</button></div>`;
+  box.style.display = 'block'; bip();
+  if (!document.hasFocus()) piscarTitulo('✅ Lote pronto para revisar');
+}
 async function carregarJobs(){
-  jobsCache = await (await fetch('/api/jobs')).json();
+  const [js, ls] = await Promise.all([fetch('/api/jobs').then(r => r.json()), fetch('/api/lotes').then(r => r.json()).catch(() => [])]);
+  jobsCache = js; lotesCache = ls;
+  for (const l of lotesCache){
+    if (loteAvisado[l.id] === false && l.liberado) avisarLote(l);
+    loteAvisado[l.id] = l.liberado;
+  }
   for (const j of jobsCache){
     const antes = statusAnterior[j.id];
     if (antes && antes !== j.status){
-      if (j.status === 'revisao' && (antes === 'analisando' || antes === 'na_fila')) avisarPronto(j, 'revisao');
+      if (j.status === 'revisao' && (antes === 'analisando' || antes === 'na_fila') && !j.lote) avisarPronto(j, 'revisao');
       if (j.status === 'concluido' && (antes === 'exportando' || antes === 'na_fila')) avisarPronto(j, 'concluido');
     }
     statusAnterior[j.id] = j.status;
@@ -363,21 +412,38 @@ async function carregarJobs(){
   const m = location.hash.match(/job=([0-9a-f]{12})/);
   if (m){ const alvo = jobsCache.find(j => j.id === m[1]); history.replaceState(null, '', location.pathname); if (alvo && alvo.segmentos) setTimeout(() => abrir(alvo.id), 50); }
   $('#vazio').style.display = jobsCache.length ? 'none':'block';
-  $('#jobs').innerHTML = jobsCache.map(j => {
+  // agrupa: cada lote vira um bloco com o marcador "x/y vídeos prontos"
+  const vistos = new Set(), ordem = [];
+  for (const j of jobsCache){
+    const l = loteDe(j);
+    if (l){ if (!vistos.has(l.id)){ vistos.add(l.id); ordem.push({lote: l}); jobsCache.filter(x => x.lote === l.id).sort((a, b) => a.criado - b.criado).forEach(x => ordem.push({job: x, emLote: true})); } }
+    else ordem.push({job: j});
+  }
+  $('#jobs').innerHTML = ordem.map(o => o.lote ? linhaLote(o.lote) : linhaJob(o.job, o.emLote)).join('');
+  if (atual) { const j = jobsCache.find(x=>x.id===atual.id); if (j) atualizarExport(j); }
+  renderAndamento();
+}
+function linhaLote(l){
+  const pct = l.total ? Math.round(l.prontos / l.total * 100) : 0;
+  const txt = l.liberado ? `✅ ${l.total} vídeos prontos para revisar` : `${l.prontos}/${l.total} vídeos prontos` + (l.recebidos < l.total ? ` · enviando ${l.recebidos}/${l.total}` : '');
+  return `<tr class="lote"><td colspan="5"><div class="row" style="justify-content:space-between;gap:12px">
+    <b>📦 Lote de ${l.total} vídeos</b><span class="${l.liberado ? '' : 'muted'}">${txt}</span></div>
+    ${l.liberado ? '' : `<div class="bar" style="margin-top:6px"><i style="width:${pct}%"></i></div><div class="hint">Os vídeos são analisados um de cada vez e liberados juntos quando todos terminarem.</div>`}</td></tr>`;
+}
+function linhaJob(j, emLote){
     const ativo = ['na_fila','analisando','exportando'].includes(j.status);
+    const trava = bloqueado(j);
     const n = (j.segmentos||[]).filter(s=>s.ativo!==false).length;
-    return `<tr><td>${j.nome.replace(/</g,'&lt;')}</td>
+    return `<tr${emLote ? ' class="emlote"' : ''}><td>${emLote ? '<span class="muted">↳ </span>' : ''}${j.nome.replace(/</g,'&lt;')}</td>
       <td><span class="tag ${j.status}">${nomes[j.status]||j.status}${ativo? ' '+Math.round(j.progresso*100)+'%':''}</span>${j.erro? `<div class="hint">${j.erro.slice(0,160).replace(/</g,'&lt;')}</div>`:''}${j.tempo_analise && !ativo ? `<div class="hint">analisado em ${relogio(j.tempo_analise)}</div>`:''}</td>
       <td>${j.duracao? fmtDur(j.duracao):'—'}</td><td>${j.segmentos? n:'—'}</td>
       <td style="text-align:right;white-space:nowrap">
-        ${j.segmentos? `<button class="ghost" onclick="abrir('${j.id}')">Revisar</button>`:''}
+        ${j.segmentos && !trava ? `<button class="ghost" onclick="abrir('${j.id}')">Revisar</button>`:''}
+        ${j.segmentos && trava ? `<button class="ghost" disabled title="Liberado quando todos os vídeos do lote forem analisados">🔒 aguardando lote</button>`:''}
         ${j.status==='concluido'? `<a href="/api/jobs/${j.id}/download"><button>Baixar</button></a>`:''}
         ${!ativo && j.segmentos? `<button class="ghost" title="Analisar o vídeo de novo com a versão atual (necessário para o placar automático em vídeos antigos)" onclick="reanalisar('${j.id}')">↻</button>`:''}
         ${!ativo? `<button class="danger" onclick="apagar('${j.id}')">Apagar</button>`:''}
       </td></tr>`;
-  }).join('');
-  if (atual) { const j = jobsCache.find(x=>x.id===atual.id); if (j) atualizarExport(j); }
-  renderAndamento();
 }
 
 // ---------- indicadores da análise em andamento
@@ -429,6 +495,7 @@ let atual = null, analise = null, segs = [], removidos = [];
 const player = $('#player'), tl = $('#tl');
 async function abrir(id){
   const job = jobsCache.find(j=>j.id===id);
+  if (job && bloqueado(job)){ const l = loteDe(job); return toast(`Aguardando o lote: ${l.prontos}/${l.total} vídeos prontos`); }
   analise = await (await fetch(`/api/jobs/${id}/analise`)).json();
   _limiar = undefined;
   atual = job; segs = job.segmentos.map(s=>({...s, ativo: s.ativo!==false}));
