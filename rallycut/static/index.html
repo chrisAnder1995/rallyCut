@@ -22,6 +22,9 @@
   .drop{border:2px dashed var(--line);border-radius:12px;padding:34px;text-align:center;cursor:pointer;transition:.15s}
   .drop.over,.drop:hover{border-color:var(--sea);background:#eef6f8}
   .drop strong{color:var(--sea)}
+  .lotebar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fbfaf6}
+  .lotebar #selInfo{flex:1;min-width:220px}
+  .lotebar select{margin-left:6px}
   tr.lote td{background:#f3f8fa;border-top:2px solid var(--line)}
   tr.emlote td:first-child{padding-left:22px}
   button[disabled]{opacity:.55;cursor:not-allowed}
@@ -267,7 +270,14 @@
 
   <section class="card">
     <h2>Seus vídeos</h2>
-    <table><thead><tr><th>Vídeo</th><th>Status</th><th>Duração</th><th>Rallys</th><th></th></tr></thead><tbody id="jobs"></tbody></table>
+    <div class="lotebar" id="selBar">
+      <span id="selInfo" class="muted">Marque os vídeos para gerar todos de uma vez, sem revisar ponto a ponto.</span>
+      <label class="hint">Placar no vídeo
+        <select id="selPlacar"><option value="manter">como estiver em cada vídeo</option><option value="ligar">ligar em todos</option><option value="desligar">desligar em todos</option></select></label>
+      <button id="selGerar" disabled>🎬 Gerar vídeos dos selecionados</button>
+      <button class="ghost" id="selBaixar" disabled>⬇ Baixar os prontos</button>
+    </div>
+    <table><thead><tr><th style="width:28px"><input type="checkbox" id="selTodos" title="Selecionar todos"></th><th>Vídeo</th><th>Status</th><th>Duração</th><th>Rallys</th><th></th></tr></thead><tbody id="jobs"></tbody></table>
     <p class="hint" id="vazio">Nenhum vídeo ainda.</p>
   </section>
 </main>
@@ -404,7 +414,7 @@ async function carregarJobs(){
     const antes = statusAnterior[j.id];
     if (antes && antes !== j.status){
       if (j.status === 'revisao' && (antes === 'analisando' || antes === 'na_fila') && !j.lote) avisarPronto(j, 'revisao');
-      if (j.status === 'concluido' && (antes === 'exportando' || antes === 'na_fila')) avisarPronto(j, 'concluido');
+      if (j.status === 'concluido' && (antes === 'exportando' || antes === 'na_fila') && !geracao.has(j.id)) avisarPronto(j, 'concluido');
     }
     statusAnterior[j.id] = j.status;
   }
@@ -420,13 +430,85 @@ async function carregarJobs(){
     else ordem.push({job: j});
   }
   $('#jobs').innerHTML = ordem.map(o => o.lote ? linhaLote(o.lote) : linhaJob(o.job, o.emLote)).join('');
+  renderSelBar(); conferirGeracao();
   if (atual) { const j = jobsCache.find(x=>x.id===atual.id); if (j) atualizarExport(j); }
   renderAndamento();
 }
+// ---------- seleção: gerar (e baixar) vários vídeos sem revisar ponto a ponto
+const selecionados = new Set();
+const podeSel = j => !!(j && j.segmentos && !bloqueado(j) && !['na_fila','analisando','exportando'].includes(j.status));
+function marcar1(id, on){ on ? selecionados.add(id) : selecionados.delete(id); renderSelBar(); carregarJobs(); }
+function marcarLote(lid, on){ const l = lotesCache.find(x => x.id === lid); if (!l) return;
+  l.jobs.forEach(id => { const j = jobsCache.find(x => x.id === id); if (podeSel(j)) on ? selecionados.add(id) : selecionados.delete(id); });
+  renderSelBar(); carregarJobs(); }
+$('#selTodos').onchange = e => { jobsCache.forEach(j => { if (podeSel(j)) e.target.checked ? selecionados.add(j.id) : selecionados.delete(j.id); }); renderSelBar(); carregarJobs(); };
+let gerandoLote = null;
+const geracao = new Set();   // vídeos gerados juntos pela seleção: um aviso só quando todos ficarem prontos
+function conferirGeracao(){
+  if (!geracao.size) return;
+  const js = [...geracao].map(id => jobsCache.find(j => j.id === id)).filter(Boolean);
+  if (js.some(j => ['na_fila','exportando'].includes(j.status))) return;
+  const ok = js.filter(j => j.status === 'concluido').length;
+  geracao.clear();
+  if (!avisosLigados) return;
+  const box = $('#pronto');
+  box.innerHTML = `<b>✅ ${ok} vídeo${ok !== 1 ? 's' : ''} pronto${ok !== 1 ? 's' : ''}</b><div class="hint">${js.length - ok ? (js.length - ok) + ' com erro · ' : ''}gerados pela seleção</div>
+    <div class="actions" style="margin-top:10px"><button onclick="$('#selBaixar').click();fecharPronto()">⬇ Baixar os prontos</button>
+      <button class="ghost" onclick="fecharPronto()">Fechar</button></div>`;
+  box.style.display = 'block'; bip();
+  if (!document.hasFocus()) piscarTitulo('✅ Vídeos prontos');
+}
+function renderSelBar(){
+  for (const id of [...selecionados]){ const j = jobsCache.find(x => x.id === id); if (!j) selecionados.delete(id); }
+  const ids = [...selecionados], js = ids.map(id => jobsCache.find(j => j.id === id)).filter(Boolean);
+  const prontos = js.filter(j => j.status === 'concluido').length;
+  const fila = js.filter(j => j.acao === 'exportar' && ['na_fila','exportando'].includes(j.status)).length;
+  $('#selGerar').disabled = !ids.length || !!gerandoLote;
+  $('#selBaixar').disabled = !prontos;
+  $('#selBaixar').textContent = `⬇ Baixar os prontos${prontos ? ` (${prontos})` : ''}`;
+  $('#selInfo').textContent = gerandoLote ? gerandoLote
+    : !ids.length ? 'Marque os vídeos para gerar todos de uma vez, sem revisar ponto a ponto.'
+    : `${ids.length} selecionado${ids.length > 1 ? 's' : ''}` + (fila ? ` · ${prontos}/${js.length} vídeos prontos, ${fila} na fila para gerar…` : prontos ? ` · ${prontos} pronto${prontos > 1 ? 's' : ''} para baixar` : '');
+  $('#selTodos').checked = jobsCache.some(podeSel) && jobsCache.filter(podeSel).every(j => selecionados.has(j.id));
+}
+// gera cada vídeo exatamente como o botão "Gerar vídeo" da revisão faria (mesmos cortes, placar, formato e áudio),
+// só que sem abrir a revisão na tela
+async function gerarSelecionados(){
+  const ids = [...selecionados].filter(id => podeSel(jobsCache.find(j => j.id === id)));
+  if (!ids.length) return;
+  if (atual){ clearTimeout(_tSalvar); await fetch(`/api/jobs/${atual.id}/salvar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload())}).catch(()=>{}); fechar(); }
+  const modoPlacar = $('#selPlacar').value;
+  const grupo = Math.random().toString(36).slice(2, 12);
+  let ok = 0, falhas = [];
+  for (let k = 0; k < ids.length; k++){
+    const job = jobsCache.find(j => j.id === ids[k]);
+    gerandoLote = `Preparando ${k+1}/${ids.length}: ${job.nome}…`; renderSelBar();
+    try {
+      await abrir(ids[k], true);
+      if (modoPlacar !== 'manter'){ plCfg.ativo = modoPlacar === 'ligar'; calcularPlacar(); }
+      clearTimeout(_tSalvar);
+      const r = await fetch(`/api/jobs/${ids[k]}/exportar`, {method:'POST', headers:{'Content-Type':'application/json', 'X-Grupo': grupo}, body: JSON.stringify(payload())});
+      if (r.ok){ ok++; geracao.add(ids[k]); } else falhas.push(`${job.nome}: ${(await r.json()).detail || r.status}`);
+    } catch(e){ falhas.push(`${job.nome}: ${e.message}`); }
+    fechar();
+  }
+  gerandoLote = null; renderSelBar(); carregarJobs();
+  toast(`${ok} vídeo${ok !== 1 ? 's' : ''} na fila para gerar` + (falhas.length ? ` · ${falhas.length} com problema: ${falhas[0]}` : '. Avisamos quando ficarem prontos.'));
+}
+$('#selGerar').onclick = gerarSelecionados;
+$('#selBaixar').onclick = async () => {
+  const js = [...selecionados].map(id => jobsCache.find(j => j.id === id)).filter(j => j && j.status === 'concluido');
+  for (const j of js){
+    const a = document.createElement('a'); a.href = `/api/jobs/${j.id}/download`; a.download = ''; document.body.appendChild(a); a.click(); a.remove();
+    await new Promise(r => setTimeout(r, 1200));   // um de cada vez, para o navegador não bloquear
+  }
+};
 function linhaLote(l){
   const pct = l.total ? Math.round(l.prontos / l.total * 100) : 0;
   const txt = l.liberado ? `✅ ${l.total} vídeos prontos para revisar` : `${l.prontos}/${l.total} vídeos prontos` + (l.recebidos < l.total ? ` · enviando ${l.recebidos}/${l.total}` : '');
-  return `<tr class="lote"><td colspan="5"><div class="row" style="justify-content:space-between;gap:12px">
+  const sel = l.jobs.filter(id => podeSel(jobsCache.find(j => j.id === id)));
+  const marc = sel.length && sel.every(id => selecionados.has(id));
+  return `<tr class="lote"><td><input type="checkbox" ${marc ? 'checked' : ''} ${sel.length ? '' : 'disabled'} title="Selecionar o lote inteiro" onchange="marcarLote('${l.id}', this.checked)"></td><td colspan="5"><div class="row" style="justify-content:space-between;gap:12px">
     <b>📦 Lote de ${l.total} vídeos</b><span class="${l.liberado ? '' : 'muted'}">${txt}</span></div>
     ${l.liberado ? '' : `<div class="bar" style="margin-top:6px"><i style="width:${pct}%"></i></div><div class="hint">Os vídeos são analisados um de cada vez e liberados juntos quando todos terminarem.</div>`}</td></tr>`;
 }
@@ -434,7 +516,7 @@ function linhaJob(j, emLote){
     const ativo = ['na_fila','analisando','exportando'].includes(j.status);
     const trava = bloqueado(j);
     const n = (j.segmentos||[]).filter(s=>s.ativo!==false).length;
-    return `<tr${emLote ? ' class="emlote"' : ''}><td>${emLote ? '<span class="muted">↳ </span>' : ''}${j.nome.replace(/</g,'&lt;')}</td>
+    return `<tr${emLote ? ' class="emlote"' : ''}><td><input type="checkbox" ${selecionados.has(j.id) ? 'checked' : ''} ${podeSel(j) ? '' : 'disabled'} onchange="marcar1('${j.id}', this.checked)"></td><td>${emLote ? '<span class="muted">↳ </span>' : ''}${j.nome.replace(/</g,'&lt;')}</td>
       <td><span class="tag ${j.status}">${nomes[j.status]||j.status}${ativo? ' '+Math.round(j.progresso*100)+'%':''}</span>${j.erro? `<div class="hint">${j.erro.slice(0,160).replace(/</g,'&lt;')}</div>`:''}${j.tempo_analise && !ativo ? `<div class="hint">analisado em ${relogio(j.tempo_analise)}</div>`:''}</td>
       <td>${j.duracao? fmtDur(j.duracao):'—'}</td><td>${j.segmentos? n:'—'}</td>
       <td style="text-align:right;white-space:nowrap">
@@ -493,7 +575,7 @@ setInterval(carregarJobs, 2000); carregarJobs();
 // ---------- revisão
 let atual = null, analise = null, segs = [], removidos = [];
 const player = $('#player'), tl = $('#tl');
-async function abrir(id){
+async function abrir(id, silencioso){
   const job = jobsCache.find(j=>j.id===id);
   if (job && bloqueado(job)){ const l = loteDe(job); return toast(`Aguardando o lote: ${l.prontos}/${l.total} vídeos prontos`); }
   analise = await (await fetch(`/api/jobs/${id}/analise`)).json();
@@ -501,7 +583,7 @@ async function abrir(id){
   atual = job; segs = job.segmentos.map(s=>({...s, ativo: s.ativo!==false}));
   removidos = (job.removidos || []).map(s=>({...s}));
   $('#review').style.display='block'; $('#rvTitle').textContent = job.nome;
-  player.src = `/api/jobs/${id}/video`;
+  if (!silencioso) player.src = `/api/jobs/${id}/video`;
   $('#baixar').style.display='none'; $('#exp').style.display='none';
   formato = Object.assign({proporcao:'original', modo:'cortar', pos:0.5}, job.formato||{}); aplicarFormato();
   plCfg = Object.assign({antes_saque:0.6, ativo:false, nome_a:'Dupla A', nome_b:'Dupla B', perto:'A', ini_a:0, ini_b:0, set:1, sets_a:0, sets_b:0}, job.placar_cfg||{});
@@ -515,6 +597,7 @@ async function abrir(id){
   aplicarCortes();
   const au = job.audio || {}; $('#vol').value = Math.round((au.volume||1)*100); $('#vento').checked = !!au.vento; aplicarAudio();
   atualizarExport(job); renderSegs(); desenhar();
+  if (silencioso){ $('#review').style.display = 'none'; return; }
   $('#review').scrollIntoView({behavior:'smooth'});
 }
 function fechar(){ atual=null; $('#review').style.display='none'; player.removeAttribute('src'); player.load(); }

@@ -203,7 +203,15 @@ def _exportar(job: dict) -> None:
     cutter.cortar(Path(job["video"]), segs, saida, progresso=lambda p: _atualizar(jid, progresso=round(p, 3)),
                   volume=float(audio.get("volume", 1.0)), reduzir_vento=bool(audio.get("vento", False)),
                   placares=placares, **(job.get("formato") or {}))
-    _atualizar(jid, status="concluido", etapa="Vídeo pronto", progresso=1.0, saida=str(saida), acao=None)
+    job = _atualizar(jid, status="concluido", etapa="Vídeo pronto", progresso=1.0, saida=str(saida), acao=None)
+    grupo = job.get("grupo_export")
+    if grupo:   # vários vídeos gerados juntos: um aviso só, quando o último ficar pronto
+        do_grupo = [j for j in listar() if j.get("grupo_export") == grupo]
+        if any(j["status"] in ("na_fila", "exportando") for j in do_grupo):
+            return
+        ok = sum(1 for j in do_grupo if j["status"] == "concluido")
+        notificar("✅ Vídeos prontos", f"{ok} vídeos gerados — clique para abrir e baixar.", URL_APP)
+        return
     notificar("✅ Vídeo pronto", f"{saida.name} — clique para abrir e baixar.", f"{URL_APP}/#job={jid}")
 
 
@@ -464,15 +472,16 @@ def salvar(job_id: str, dados: SegmentosIn):
 
 
 @app.post("/api/jobs/{job_id}/exportar")
-def exportar(job_id: str, dados: SegmentosIn):
+def exportar(job_id: str, dados: SegmentosIn, request: Request):
     job = _ler(job_id)
     if job["status"] not in ("revisao", "concluido", "erro") or "duracao" not in job:
         raise HTTPException(409, "Trabalho ainda não está pronto para exportar")
     v = _validar(job, dados)
     if not any(s["ativo"] for s in v["segmentos"]):
         raise HTTPException(400, "Selecione pelo menos um rally")
+    grupo = (request.headers.get("x-grupo") or "")[:20] or None
     job = _atualizar(job_id, **v, acao="exportar", status="na_fila", etapa="Na fila para exportar",
-                     progresso=0.0, erro=None)
+                     progresso=0.0, erro=None, grupo_export=grupo)
     _fila.append(job_id)
     _evento.set()
     return job
