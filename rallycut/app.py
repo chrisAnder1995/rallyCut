@@ -408,7 +408,7 @@ def _seg_valido(job: dict, s: dict) -> dict | None:
                     seg["placar_manual"] = {"a": max(0, min(99, int(pm["a"]))), "b": max(0, min(99, int(pm["b"])))}
                 except (KeyError, TypeError, ValueError):
                     pass
-            for k in ("lanc", "saque_t", "voo_fim"):
+            for k in ("lanc", "saque_t", "voo_fim", "queda_bola"):
                 if isinstance(s.get(k), (int, float)):
                     seg[k] = round(float(s[k]), 2)
             if s.get("saque_lado") in ("perto", "longe"):
@@ -423,7 +423,9 @@ def _seg_valido(job: dict, s: dict) -> dict | None:
                 seg["confianca"] = s["confianca"]
             if s.get("inicio_inferido"):
                 seg["inicio_inferido"] = True
-            for k in ("revisar", "origem"):
+            if s.get("fim_status") in ("confirmado", "a_confirmar"):
+                seg["fim_status"] = s["fim_status"]
+            for k in ("revisar", "origem", "fim_motivo", "revisar_fim"):
                 if s.get(k):
                     seg[k] = str(s[k])[:160]
             return seg

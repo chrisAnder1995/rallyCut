@@ -29,10 +29,11 @@ Cada **ponto** vai do lançamento da bola no saque até a bola cair (`rallycut/p
 2. Cada janela é reanalisada a 10 quadros/s.
 3. **Início**: um rally só começa quando há um **saque detectado** — o lançamento da bola, a bola cruzando a rede ou a bola entrando no quadro com cara de saque (sacador fora do quadro) — com 0,6 s de folga antes.
 4. **Fim**: quando a bola cai (+0,7 s): ela desce até a altura da areia e não volta a subir em 1,5 s. Se a bola sai do quadro no meio do ponto, o rally **não termina**: o que vier até o próximo saque é continuação da mesma jogada. Na página dá para trocar para "1 s antes do próximo saque".
-5. **Placar**: o ponto é sempre de quem saca o próximo rally (o lado do saque é visto pelo tamanho da bola: a que vem do lado de lá cresce na imagem). O placar muda entre o fim da jogada e o próximo saque.
-6. **2ª passagem (revisão dos intervalos)**: tudo o que ficou fora dos pontos é revisado procurando pontos perdidos — jogadores se movimentando como num rally (velocidade das pessoas na quadra, calibrada no próprio vídeo) e bola voando. Disputa sem saque visível vira ponto com **início inferido** e **baixa confiança**; movimento sem bola fica desmarcado como **possível ponto perdido** para você conferir.
-7. **Relatório**: total de pontos, com início inferido, com baixa confiança, possíveis pontos perdidos e intervalos que precisam de revisão (também no .txt das marcações).
-8. O corte é feito com precisão de quadro e usa a placa de vídeo para codificar quando existir (NVENC/QuickSync/AMF).
+5. **Confirmação do fim (antes do corte)**: a queda da bola só vira fim se a cena confirmar — os jogadores param de correr (1 a 3 s depois), a bola fica parada na areia ou não volta ao jogo. Se a bola volta a voar alto com os jogadores em disputa, era uma defesa não vista e o ponto continua. Quando a bola cai mas os jogadores seguem correndo, o corte **espera eles pararem** (até 3 s a mais) e o ponto ganha o selo **fim?** (tracinho laranja na linha do tempo, contagem no relatório e `FIM_A_CONFIRMAR` no .txt). Clique no selo para ver o fim e no ✓ para confirmar; ajustar o fim à mão também confirma.
+6. **Placar**: o ponto é sempre de quem saca o próximo rally (o lado do saque é visto pelo tamanho da bola: a que vem do lado de lá cresce na imagem). O placar muda entre o fim da jogada e o próximo saque.
+7. **2ª passagem (revisão dos intervalos)**: tudo o que ficou fora dos pontos é revisado procurando pontos perdidos — jogadores se movimentando como num rally (velocidade das pessoas na quadra, calibrada no próprio vídeo) e bola voando. Disputa sem saque visível vira ponto com **início inferido** e **baixa confiança**; movimento sem bola fica desmarcado como **possível ponto perdido** para você conferir.
+8. **Relatório**: total de pontos, com início inferido, com baixa confiança, com fim a confirmar, possíveis pontos perdidos e intervalos que precisam de revisão (também no .txt das marcações).
+9. O corte é feito com precisão de quadro e usa a placa de vídeo para codificar quando existir (NVENC/QuickSync/AMF).
 
 Os parâmetros ficam em `rallycut/detector.py` (`Config`). Os principais:
 

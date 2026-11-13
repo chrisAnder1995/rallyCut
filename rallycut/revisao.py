@@ -114,6 +114,8 @@ def relatorio(segs: list[dict], mov: list[float], frames: list[dict], duracao: f
         "total": len(ativos),
         "inicio_inferido": sum(1 for s in ativos if s.get("inicio_inferido")),
         "baixa_confianca": sum(1 for s in ativos if s.get("confianca") == "baixa"),
+        "fim_a_confirmar": [{"ini": s["ini"], "fim": s["fim"], "motivo": s.get("fim_motivo", "")}
+                            for s in ativos if s.get("fim_status") == "a_confirmar"],
         "possiveis_perdidos": [{"ini": s["ini"], "fim": s["fim"], "motivo": s.get("revisar")} for s in perdidos],
         "intervalos": sorted(intervalos, key=lambda x: x["de"]),
     }

@@ -94,6 +94,7 @@
   .selo{display:inline-block;font-size:9.5px;font-weight:700;padding:0 5px;border-radius:6px;line-height:15px;white-space:nowrap;margin-top:2px}
   .selo.inf{background:#e8eef7;color:#3b5b8c} .selo.baixa{background:#fdecea;color:#b4372e}
   .selo.rev{background:#e9f5ec;color:#2d7a43} .selo.perd{background:#fff3d6;color:#8a5a00}
+  .selo.fimc{background:#fff3d6;color:#8a5a00;cursor:pointer} .selo.fimc b{margin-left:3px;color:#2d7a43}
   #relat{margin:10px 0 4px;border:1px solid var(--line,#e6dfd2);border-radius:10px;padding:10px 12px;font-size:13px}
   #relat summary{cursor:pointer;font-weight:700}
   #relat .nums{display:flex;flex-wrap:wrap;gap:6px 18px;margin:8px 0}
@@ -639,6 +640,7 @@ function desenhar(){
     const ord = analise.mov.slice().sort((a,b)=>a-b), mx = Math.max(1e-6, ord[Math.floor(ord.length*0.98)] || 0);
     c.strokeStyle = 'rgba(80,70,160,.55)'; c.lineWidth = 1; c.beginPath();
     analise.mov.forEach((v,i)=>{ const px=x(i*dt), py=H-6-(H-12)*Math.min(1,v/mx); i? c.lineTo(px,py):c.moveTo(px,py); }); c.stroke(); }
+  for (const s of segs){ if (fimAConfirmar(s)){ c.fillStyle = 'rgba(232,140,40,.95)'; c.fillRect(x(s.fim) - 2, 0, 3, H); } }
   for (const s of segs){ if (!s.ativo && s.revisar){ c.fillStyle = 'rgba(232,176,75,.55)'; c.fillRect(x(s.ini), H-6, Math.max(3, x(s.fim)-x(s.ini)), 6); } }
   c.fillStyle = '#10202c';
   for (const s of segs){ if (s.saque_t == null || !s.ativo) continue; const px = x(s.saque_t);
@@ -999,6 +1001,13 @@ function restaurarSeg(k){
 // ace/erro de saque: sem recepção e o ponto termina logo depois do saque
 const eAce = s => !!s.obs && (s.saque_t == null || s.fim - s.saque_t < 4.5);
 // selos de revisão: início inferido, confiança, possível ponto perdido
+// FIM A CONFIRMAR: a bola caiu mas a cena não confirmou o fim (jogadores seguiram correndo / bola sumiu).
+// Ajustar o fim à mão ou clicar no ✓ confirma.
+const fimAConfirmar = s => s.ativo && s.fim_status === 'a_confirmar' && !s.fim_manual;
+function confirmarFim(i, ev){ if (ev) ev.stopPropagation(); const s = segs[i]; if (!s) return;
+  s.fim_status = 'confirmado'; delete s.revisar_fim; renderSegs(); desenhar(); agendarSalvar(); }
+function verFim(i, ev){ if (ev) ev.stopPropagation(); const s = segs[i]; if (!s) return;
+  player.currentTime = Math.max(s.ini, (s.queda_bola != null ? s.queda_bola : s.fim) - 2); player.play(); }
 // RELATÓRIO: totais, início inferido, baixa confiança, possíveis pontos perdidos e intervalos a revisar
 const INTERVALO_LONGO = 45, PONTO_LONGO = 45;
 function relatorio(){
@@ -1015,7 +1024,7 @@ function relatorio(){
   at.forEach(s => { if (s.fim - s.ini >= PONTO_LONGO) intervalos.push({de: s.ini, ate: s.fim, motivo: 'clipe longo: verificar se há dois pontos juntos'}); });
   intervalos.sort((a, b) => a.de - b.de);
   return {total: at.length, inferidos: at.filter(s => s.inicio_inferido).length, baixa: at.filter(s => s.confianca === 'baixa'),
-          perdidos, intervalos};
+          perdidos, intervalos, fimConf: at.filter(fimAConfirmar)};
 }
 let _limiar = undefined;
 function relat_limiar(){
@@ -1034,7 +1043,8 @@ function renderRelatorio(){
   const lista = (arr, f) => arr.length ? `<ul>${arr.map(f).join('')}</ul>` : '<div class="hint">nenhum</div>';
   box.innerHTML = `<div class="nums"><span><b>${r.total}</b>pontos detectados</span><span><b>${r.inferidos}</b>com início inferido</span>
       <span><b>${r.baixa.length}</b>com baixa confiança</span><span><b>${r.perdidos.length}</b>possíveis pontos perdidos</span>
-      <span><b>${r.intervalos.length}</b>intervalos para revisar</span></div>
+      <span><b>${r.intervalos.length}</b>intervalos para revisar</span><span><b>${r.fimConf.length}</b>fins a confirmar</span></div>
+    ${r.fimConf.length ? `<div class="hint">Fim a confirmar (o corte esperou os jogadores pararem — ajuste o fim ou clique ✓ no ponto):</div>${lista(r.fimConf, s => `<li>${ir(Math.max(s.ini, (s.queda_bola ?? s.fim) - 2))} – ${mmss(s.fim)} · ${esc(s.fim_motivo || '')}</li>`)}` : ''}
     ${r.baixa.length ? `<div class="hint">Baixa confiança:</div>${lista(r.baixa, s => `<li>${ir(s.ini)} – ${mmss(s.fim)} · ${REF[s.saque_ref] || 'sem saque visto'}</li>`)}` : ''}
     <div class="hint" style="margin-top:6px">Possíveis pontos perdidos (desmarcados — marque a caixinha se for ponto):</div>${lista(r.perdidos, s => `<li>${ir(s.ini)} – ${mmss(s.fim)} · ${esc(s.revisar)}</li>`)}
     <div class="hint" style="margin-top:6px">Intervalos que precisam de revisão:</div>${lista(r.intervalos, v => `<li>${ir(v.de)} – ${mmss(v.ate)} · ${esc(v.motivo)}</li>`)}
@@ -1046,6 +1056,8 @@ function selos(s){
   if (s.ativo && s.confianca === 'baixa') b.push('<span class="selo baixa" title="Baixa confiança: confira este ponto">baixa conf.</span>');
   if (s.origem === 'revisão dos intervalos' && s.ativo) b.push('<span class="selo rev" title="Achado na 2ª passagem (revisão dos intervalos)">2ª passagem</span>');
   if (!s.ativo && s.revisar) b.push(`<span class="selo perd" title="${esc(s.revisar)}">⚠ revisar</span>`);
+  if (fimAConfirmar(s)){ const i = segs.indexOf(s);
+    b.push(`<span class="selo fimc" title="Fim a confirmar: ${esc(s.fim_motivo || '')}. Clique para ver o fim; ✓ confirma." onclick="verFim(${i}, event)">fim?<b onclick="confirmarFim(${i}, event)" title="Confirmar o fim deste ponto">✓</b></span>`); }
   return b.length ? '<br>' + b.join(' ') : '';
 }
 const mmss = t => `${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
@@ -1094,6 +1106,18 @@ let _avisouSemDados = false;
 const FIM_MAX = 20;
 const SAIU_DO_QUADRO = 8;    // trecho SEM saque até 8 s depois do rally anterior = bola saiu do quadro, o ponto continua
 function inicioDoSaque(s){ return s.lanc != null ? s.lanc : s.ini + (plCfg.antes_saque ?? 0.6); }
+// saque de verdade: antes dele os jogadores estão PARADOS. Movimento de rally antes do "saque" = meio da jogada.
+function saqueSuspeito(){
+  const mov = analise && analise.mov, dt = (analise && analise.passo) || 0.2;
+  if (!mov || !mov.length) return () => false;
+  const faixa = (a, b) => mov.slice(Math.max(0, Math.floor(a/dt)), Math.max(0, Math.ceil(b/dt)));
+  const med = v => { const o = [...v].sort((x, y) => x - y); return o.length ? o[Math.floor(o.length/2)] : 0; };
+  const rally = [].concat(...segs.filter(s => s.ativo && s.saque_t != null).map(s => faixa(s.saque_t + 1, s.voo_fim != null ? s.voo_fim : s.fim)));
+  if (rally.length < 10) return () => false;
+  const limite = Math.max(0.25, med(rally));
+  return s => { const t = s.lanc != null ? s.lanc : s.saque_t; if (t == null) return false;
+    const antes = faixa(t - 2.5, t - 0.3); return antes.length >= 5 && med(antes) > limite; };
+}
 const temSaque = s => !!s.sacador || s.lanc != null || ['lancamento', 'rede', 'recepcao', 'fora'].includes(s.saque_ref);
 function aplicarCortes(){
   aplicarAntesSaque();
@@ -1102,13 +1126,16 @@ function aplicarCortes(){
   //    (a bola saiu do quadro e voltou); longe de qualquer rally, não é rally.
   // 2) pedaço com saque colado no rally anterior (até 1,5 s) também é a mesma jogada.
   const novos = [];
+  const suspeito = saqueSuspeito();
   for (const s of segs){
     const ant = [...novos].reverse().find(x => x.ativo);
     if (s.ativo && ant){
-      const semSaque = !temSaque(s) && s.ini - ant.fim <= SAIU_DO_QUADRO;
+      // "saque" com os jogadores correndo antes = ataque/defesa no meio da jogada: não corta, junta ao anterior
+      const semSaque = (!temSaque(s) || (suspeito(s) && !s.sacador)) && s.ini - ant.fim <= SAIU_DO_QUADRO;
       const colado = !s.sacador && s.ini - ant.fim <= 1.5;
       if (semSaque || colado){
         ant.fim = Math.max(ant.fim, s.fim); if (s.voo_fim != null) ant.voo_fim = Math.max(ant.voo_fim || 0, s.voo_fim);
+        if (s.fim_status){ ant.fim_status = s.fim_status; ant.fim_motivo = s.fim_motivo; ant.queda_bola = s.queda_bola; }
         delete ant.obs; continue;
       }
     }
@@ -1172,7 +1199,7 @@ function textoMarcacoes(){
     // quem venceu o ponto k é quem saca o ponto seguinte; no último, quem fez o último ponto
     const prox = pts[k + 1];
     const venc = prox ? (prox._ponto || prox._sacou) : s._pontoFinal;
-    linhas.push(`PONTO ${k + 1}:`, `START FRAME: ${f(s.ini)}${s.inicio_inferido ? ' (START_INFERIDO)' : ''}`, `END FRAME: ${f(s.fim)}`,
+    linhas.push(`PONTO ${k + 1}:`, `START FRAME: ${f(s.ini)}${s.inicio_inferido ? ' (START_INFERIDO)' : ''}`, `END FRAME: ${f(s.fim)}${fimAConfirmar(s) ? ' (FIM_A_CONFIRMAR)' : ''}`,
                 `RESULTADO: ${nome(venc)}`, ...(s.confianca === 'baixa' ? ['CONFIANÇA: baixa'] : []), '');
   });
   const r = relatorio();
@@ -1180,9 +1207,10 @@ function textoMarcacoes(){
     `TOTAL DE PONTOS DETECTADOS: ${r.total}`,
     `TOTAL DE PONTOS COM INÍCIO INFERIDO: ${r.inferidos}`,
     `TOTAL DE PONTOS COM BAIXA CONFIANÇA: ${r.baixa.length}`,
+    `TOTAL DE PONTOS COM FIM A CONFIRMAR: ${r.fimConf.length}`, ...r.fimConf.map(s => `  - frame ${f(s.fim)} (${mmss(s.fim)}): ${s.fim_motivo || ''}`),
     `POSSÍVEIS PONTOS PERDIDOS: ${r.perdidos.length}`, ...r.perdidos.map(s => `  - frames ${f(s.ini)}–${f(s.fim)} (${mmss(s.ini)}–${mmss(s.fim)}): ${s.revisar}`),
     `INTERVALOS QUE PRECISAM DE REVISÃO: ${r.intervalos.length}`, ...r.intervalos.map(v => `  - frames ${f(v.de)}–${f(v.ate)} (${mmss(v.de)}–${mmss(v.ate)}): ${v.motivo}`));
-  if (r.perdidos.length || r.intervalos.length) linhas.push('', 'PARTIDA SINALIZADA PARA REVISÃO.');
+  if (r.perdidos.length || r.intervalos.length || r.fimConf.length) linhas.push('', 'PARTIDA SINALIZADA PARA REVISÃO.');
   return linhas.join('\n');
 }
 $('#marcacoes').onclick = () => {
@@ -1199,10 +1227,10 @@ let _tSalvar = null;
 function payload(){
   return { segmentos: segs.map(s => ({ini:s.ini, fim:s.fim, ativo:s.ativo, sacador:s.sacador||null, ponto_final:s.ponto_final||null,
                                             placar: s._pl ? {...s._pl, final_em: s._pl.final ? Math.max(0.5, s.fim - s.ini - 1.2) : null, destaque_ate: Math.max(0.5, ((s.saque_t != null && s.saque_t >= s.ini) ? s.saque_t - s.ini : 1.5) + 2.0)} : null,
-                                            lanc:s.lanc, saque_t:s.saque_t, saque_lado:s.saque_lado, saque_ref:s.saque_ref, motivo:s.motivo, obs:s.obs, ini_manual:!!s.ini_manual, fim_manual:!!s.fim_manual, ativo_manual:!!s.ativo_manual, voo_fim:s.voo_fim, placar_manual:s.placar_manual||null})),
+                                            lanc:s.lanc, saque_t:s.saque_t, saque_lado:s.saque_lado, saque_ref:s.saque_ref, motivo:s.motivo, obs:s.obs, ini_manual:!!s.ini_manual, fim_manual:!!s.fim_manual, ativo_manual:!!s.ativo_manual, voo_fim:s.voo_fim, queda_bola:s.queda_bola, fim_status:s.fim_status, fim_motivo:s.fim_motivo, placar_manual:s.placar_manual||null})),
            removidos: removidos.map(s => ({ini:s.ini, fim:s.fim, ativo:s.ativo, sacador:s.sacador||null, ponto_final:s.ponto_final||null,
                                            lanc:s.lanc, saque_t:s.saque_t, saque_lado:s.saque_lado, saque_ref:s.saque_ref, motivo:s.motivo, obs:s.obs,
-                                           ini_manual:!!s.ini_manual, fim_manual:!!s.fim_manual, voo_fim:s.voo_fim, placar_manual:s.placar_manual||null})),
+                                           ini_manual:!!s.ini_manual, fim_manual:!!s.fim_manual, voo_fim:s.voo_fim, queda_bola:s.queda_bola, fim_status:s.fim_status, fim_motivo:s.fim_motivo, placar_manual:s.placar_manual||null})),
            audio: {volume:+$('#vol').value/100, vento:$('#vento').checked},
            formato: {proporcao:formato.proporcao, modo:formato.modo, pos:formato.pos},
            placar_cfg: plCfg };
