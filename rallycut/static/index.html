@@ -1201,6 +1201,11 @@ function aplicarCortes(){
     const minimo = (s.saque_t != null ? s.saque_t : s.ini) + 0.5;
     // a jogada só acaba quando os jogadores param (ficam parados esperando o próximo saque);
     // sem esse sinal, vai até o próximo saque (no máximo PAUSA_LONGA s depois do fim detectado)
+    // bola parada no chão (depois de estar no ar) por 0,5 s = o ponto acabou: corta ali, sem esperar o próximo saque
+    if (s.fim_status === 'confirmado' && /parada/.test(s.fim_motivo || '')){
+      if (s._fimDet > minimo) s.fim = Math.round(Math.min(s._fimDet, prox ? prox.ini - 0.05 : s._fimDet) * 100) / 100;
+      return;
+    }
     const parou = calma(s._fimDet, limite);
     let fim = parou != null ? Math.min(limite, Math.max(s._fimDet, parou)) : (limite - s._fimDet <= PAUSA_LONGA ? limite : s._fimDet + PAUSA_LONGA);
     if (prox) fim = Math.min(fim, prox.ini - 0.05);

@@ -130,14 +130,65 @@ def _bola_voa_de_novo(tr: list[tuple], t: float, chao: float, ate: float, ate_re
     return voando >= 2
 
 
+PARADA_MIN = 0.5   # s: bola parada no chão por esse tempo, depois de estar no ar = fim do ponto
+
+
 def _bola_parada_no_chao(fino: list[dict], t: float, x: float, y: float, chao: float) -> bool:
-    """A bola aparece parada (ou rolando devagar) perto de onde caiu: bola morta na areia."""
-    perto = [b for f in fino if t + 0.2 <= f["t"] <= t + 2.5 for b in f["b"]
+    """A bola fica parada (ou rolando devagar) perto de onde caiu por pelo menos PARADA_MIN s: bola morta."""
+    perto = [(f["t"], b) for f in fino if t + 0.2 <= f["t"] <= t + 2.5 for b in f["b"]
              if b[0] >= 0.3 and b[2] >= chao - 0.05 and ((b[1] - x) ** 2 + (b[2] - y) ** 2) ** 0.5 < 0.08]
     if len(perto) < 4:
         return False
-    xs, ys = [b[1] for b in perto], [b[2] for b in perto]
-    return (max(xs) - min(xs)) + (max(ys) - min(ys)) < 0.08
+    ts = [p[0] for p in perto]
+    xs, ys = [p[1][1] for p in perto], [p[1][2] for p in perto]
+    return max(ts) - min(ts) >= PARADA_MIN and (max(xs) - min(xs)) + (max(ys) - min(ys)) < 0.08
+
+
+def _fim_da_trajetoria(tr: list[tuple], t: float, x: float, y: float, chao: float) -> bool:
+    """A bola parada em (x, y) é a continuação da bola em jogo?
+
+    Pega as últimas aparições da bola no ar (até 1,5 s antes): têm de ser pelo menos 3, seguidas (sem buracos
+    grandes), DESCENDO, e a última tem de estar perto do ponto de parada, na mesma direção do movimento.
+    """
+    voo = [p for p in tr if t - 1.5 <= p[0] < t and p[2] < y - 0.02]
+    if len(voo) < 3:
+        return False
+    ult = voo[-3:]
+    if any(q[0] - p[0] > 0.5 for p, q in zip(ult, ult[1:])):
+        return False                                   # trajetória com buracos: não dá para seguir a bola
+    if not (ult[0][2] < ult[1][2] < ult[2][2]):
+        return False                                   # não estava descendo
+    lt, lx, ly = ult[-1][0], ult[-1][1], ult[-1][2]
+    if ((x - lx) ** 2 + (y - ly) ** 2) ** 0.5 > 0.12 + 0.8 * (t - lt):
+        return False                                   # longe demais de onde a bola estava
+    vx = (ult[-1][1] - ult[0][1]) / max(1e-3, ult[-1][0] - ult[0][0])
+    prev_x = lx + vx * (t - lt)                        # onde a bola deveria chegar, seguindo o movimento
+    return abs(x - prev_x) < 0.12 + 0.3 * (t - lt)
+
+
+def _parada_apos_voo(tr: list[tuple], fino: list[dict], desde: float, ate: float, chao: float):
+    """Primeiro momento em que a bola, DEPOIS de estar no ar, fica PARADA no chão por PARADA_MIN s.
+
+    Pega também o caso em que a queda em si não foi vista (bola some descendo e aparece já na areia).
+    Ignora bolas reservas: as que já estavam paradas naquele lugar antes do saque.
+    Retorna (t, x, y) ou None.
+    """
+    def dets(a, b):
+        return [(f["t"], bb[1], bb[2]) for f in fino if a <= f["t"] <= b for bb in f["b"] if bb[0] >= 0.3]
+    todas = dets(desde - 8.0, ate + 3.0)
+    chao_dets = [d for d in dets(desde, ate) if d[2] >= chao - 0.05]
+    for i, (t, x, y) in enumerate(chao_dets):
+        # reserva / objeto parado: já havia "bola" nesse lugar bem antes (ou bem depois) -> não é a bola do jogo
+        if sum(1 for a, bx, by in todas if abs(a - t) > 3.0 and abs(bx - x) < 0.04 and abs(by - y) < 0.04) >= 2:
+            continue
+        # tem que ser a MESMA bola do jogo: o fim da TRAJETÓRIA que vinha sendo seguida
+        if not _fim_da_trajetoria(tr, t, x, y, chao):
+            continue
+        junto = [d for d in chao_dets[i:] if d[0] <= t + PARADA_MIN + 0.4
+                 and abs(d[1] - x) < 0.03 and abs(d[2] - y) < 0.03]
+        if len(junto) >= 4 and junto[-1][0] - t >= PARADA_MIN:
+            return t, x, y
+    return None
 
 
 def confirmar_fim(t: float, x: float, y: float, tr: list[tuple], fino: list[dict], chao: float,
@@ -190,7 +241,11 @@ def fim_confirmado(tr: list[tuple], fino: list[dict], desde: float, ate: float, 
     Retorna (t_queda, info) com info = {"status": "confirmado" | "a_confirmar", "por", "estende_ate"?}.
     """
     duvida = None
+    # bola que estava no ar e ficou PARADA no chão por 0,5 s: fim do ponto, sem depender de mais nada
+    parada = _parada_apos_voo(tr, fino, desde, ate, chao)
     for t, x, y in _candidatos_fim(tr, desde, ate, chao):
+        if parada and parada[0] <= t:
+            break
         if duvida and t - duvida[0] > OUTRA_QUEDA:
             break
         r = confirmar_fim(t, x, y, tr, fino, chao, ctx, ate)
@@ -198,6 +253,8 @@ def fim_confirmado(tr: list[tuple], fino: list[dict], desde: float, ate: float, 
             return t, {"status": "confirmado", "por": r["por"]}
         if r["ok"] is None and duvida is None:
             duvida = (t, r)
+    if parada and (duvida is None or parada[0] <= duvida[0] + OUTRA_QUEDA):
+        return parada[0], {"status": "confirmado", "por": "bola parada no chão por 0,5 s"}
     if duvida:
         t, r = duvida
         info = {"status": "a_confirmar", "por": r["por"]}
