@@ -253,7 +253,7 @@
         </div>
         <div class="row hint" style="margin-top:6px" title="Onde cada rally termina. Rallys com o fim ajustado à mão não mudam.">
           <span>Terminar</span>
-          <div class="seg" id="fimModo"><button data-v="queda">quando a bola cai</button><button data-v="saque">1 s antes do próximo saque</button></div>
+          <div class="seg" id="fimModo"><button data-v="saque">só no próximo saque (padrão)</button><button data-v="queda">quando a bola cai</button></div>
         </div>
         <div class="actions">
           <button class="ghost" id="addSeg">+ Rally no ponto atual</button>
@@ -594,7 +594,8 @@ async function abrir(id, silencioso){
   // queda da bola (fim da jogada) guardada na análise: recupera para os rallys que não têm mais
   const quedas = new Map((analise.segmentos || []).filter(a => a.voo_fim != null && a.saque_t != null).map(a => [a.saque_t, a.voo_fim]));
   segs.forEach(s => { if (s.voo_fim == null && s.saque_t != null && quedas.has(s.saque_t)) s.voo_fim = quedas.get(s.saque_t); });
-  plCfg.fim_ref = (job.placar_cfg || {}).fim_ref === 'saque' ? 'saque' : 'queda';   // padrão: termina quando a bola cai
+  // padrão: o rally vai de um saque até o próximo saque (nunca corta no meio de um lance)
+  plCfg.fim_ref = plCfg.corte = (job.placar_cfg || {}).corte === 'queda' ? 'queda' : 'saque';
   aplicarCortes();
   const au = job.audio || {}; $('#vol').value = Math.round((au.volume||1)*100); $('#vento').checked = !!au.vento; aplicarAudio();
   atualizarExport(job); renderSegs(); desenhar();
@@ -1104,7 +1105,27 @@ let _avisouSemDados = false;
 //  fim:    1 s antes do próximo saque — é aí que o ponto é marcado para quem vai sacar.
 //          Limite: no máximo FIM_MAX s depois da bola cair (pausa longa = troca de lado, fim de set, bola longe).
 const FIM_MAX = 20;
+const PAUSA_LONGA = 45;   // s: mais que isso entre o fim detectado e o próximo saque = pausa (troca de lado, fim de set, intervalo)
 const SAIU_DO_QUADRO = 8;    // trecho SEM saque até 8 s depois do rally anterior = bola saiu do quadro, o ponto continua
+// Momento em que os jogadores PARAM depois da jogada: movimento abaixo do "calmo" por CALMA_MIN s seguidos.
+// Calmo = bem abaixo do movimento típico de um rally neste vídeo. Retorna o fim (início da calmaria + 1 s) ou null.
+const CALMA_MIN = 6;
+function fimPorCalma(){
+  const mov = analise && analise.mov, dt = (analise && analise.passo) || 0.2;
+  if (!mov || !mov.length) return () => null;
+  const med = v => { const o = [...v].sort((x, y) => x - y); return o.length ? o[Math.floor(o.length/2)] : 0; };
+  const rally = [].concat(...segs.filter(s => s.ativo && s.saque_t != null && s.voo_fim != null)
+                   .map(s => mov.slice(Math.floor((s.saque_t + 1)/dt), Math.ceil(s.voo_fim/dt))));
+  if (rally.length < 20) return () => null;
+  const calmo = 0.6 * med(rally), n = Math.round(CALMA_MIN / dt);
+  return (desde, ate) => {
+    for (let i = Math.floor(desde/dt); i + n <= Math.min(mov.length, Math.floor(ate/dt)); i++){
+      let quietos = 0; for (let k = i; k < i + n; k++) if (mov[k] < calmo) quietos++;
+      if (quietos >= 0.85 * n && mov[i] < calmo) return i*dt + 1.0;
+    }
+    return null;
+  };
+}
 function inicioDoSaque(s){ return s.lanc != null ? s.lanc : s.ini + (plCfg.antes_saque ?? 0.6); }
 // saque de verdade: antes dele os jogadores estão PARADOS. Movimento de rally antes do "saque" = meio da jogada.
 function saqueSuspeito(){
@@ -1127,11 +1148,19 @@ function aplicarCortes(){
   // 2) pedaço com saque colado no rally anterior (até 1,5 s) também é a mesma jogada.
   const novos = [];
   const suspeito = saqueSuspeito();
+  // trecho sem saque até SAIU_DO_QUADRO s depois do anterior é continuação; mais longe que isso, depois de uma
+  // pausa, é um ponto novo cujo saque não apareceu (começa no passe / na 1ª bola vista)
+  const juntaAte = SAIU_DO_QUADRO;
   for (const s of segs){
     const ant = [...novos].reverse().find(x => x.ativo);
+    // jogadores ainda em movimento logo depois do rally (bola não vista) = a jogada continuou: entra no rally
+    if (!s.ativo && s.revisar && !s.ativo_manual && ant && s.ini - ant.fim <= juntaAte){
+      ant.fim = Math.max(ant.fim, s.fim); ant.voo_fim = Math.max(ant.voo_fim || 0, s.fim - 1.0);
+      delete ant._fimDet; continue;
+    }
     if (s.ativo && ant){
       // "saque" com os jogadores correndo antes = ataque/defesa no meio da jogada: não corta, junta ao anterior
-      const semSaque = (!temSaque(s) || (suspeito(s) && !s.sacador)) && s.ini - ant.fim <= SAIU_DO_QUADRO;
+      const semSaque = (!temSaque(s) || (suspeito(s) && !s.sacador)) && s.ini - ant.fim <= juntaAte;
       const colado = !s.sacador && s.ini - ant.fim <= 1.5;
       if (semSaque || colado){
         ant.fim = Math.max(ant.fim, s.fim); if (s.voo_fim != null) ant.voo_fim = Math.max(ant.voo_fim || 0, s.voo_fim);
@@ -1156,19 +1185,30 @@ function aplicarCortes(){
       if (Math.abs(f - s.fim) > 0.05) s.fim = f; } });
     return;
   }
+  // FIM = 1 s antes do PRÓXIMO saque (ou do passe, quando o saque não aparece). Assim nenhum lance fica de fora.
+  // Exceção: pausa longa (troca de lado, fim de set, intervalo) — mais de PAUSA_LONGA s sem jogo até o próximo
+  // saque: aí o rally termina no fim confirmado da jogada, para não colocar a pausa inteira no vídeo.
   const ativos = segs.filter(s => s.ativo);
+  const calma = fimPorCalma();
   ativos.forEach((s, k) => {
+    if (s.fim_manual) return;
+    // fim detectado: a bola caiu (+ até 3 s para os jogadores pararem)
+    if (s._fimDet == null) s._fimDet = s.voo_fim != null ? Math.min(s.fim, s.voo_fim + 3.0) : s.fim;
     const prox = ativos[k + 1];
-    if (!prox || s.fim_manual) return;
-    let fim = inicioDoSaque(prox) - 1.0;
-    const queda = s.voo_fim != null ? s.voo_fim : null;
-    if (queda != null) fim = Math.min(fim, queda + FIM_MAX);
+    const limite = prox ? inicioDoSaque(prox) - 1.0 : analise.duracao;
     const minimo = (s.saque_t != null ? s.saque_t : s.ini) + 0.5;
-    if (fim > minimo && fim <= prox.ini) s.fim = Math.round(fim * 100) / 100;
+    // a jogada só acaba quando os jogadores param (ficam parados esperando o próximo saque);
+    // sem esse sinal, vai até o próximo saque (no máximo PAUSA_LONGA s depois do fim detectado)
+    const parou = calma(s._fimDet, limite);
+    let fim = parou != null ? Math.min(limite, Math.max(s._fimDet, parou)) : (limite - s._fimDet <= PAUSA_LONGA ? limite : s._fimDet + PAUSA_LONGA);
+    if (prox) fim = Math.min(fim, prox.ini - 0.05);
+    if (fim > minimo) s.fim = Math.round(fim * 100) / 100;
   });
 }
 $('#fimModo').onclick = e => { const v = e.target.dataset.v; if (!v) return;
-  plCfg.fim_ref = v; marcar('#fimModo', v); aplicarCortes(); renderSegs(); desenhar(); };
+  plCfg.fim_ref = v; plCfg.corte = v;
+  if (v === 'queda') segs.forEach(s => { if (s._fimDet != null && !s.fim_manual) s.fim = s._fimDet; });
+  marcar('#fimModo', v); aplicarCortes(); renderSegs(); desenhar(); };
 function aplicarAntesSaque(){
   const x = +$('#antesSaque').value; plCfg.antes_saque = x; marcar('#fimModo', plCfg.fim_ref || 'queda');
   $('#antesTxt').textContent = String(x).replace('.', ',') + ' s';

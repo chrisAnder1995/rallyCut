@@ -452,7 +452,8 @@ def _validar(job: dict, dados: "SegmentosIn") -> dict:
                                 "rally": int(r) if isinstance(r, (int, float)) and r >= 1 else None}
             if v.get("alvo") in (12, 15, 18, 21):
                 sets_cfg[str(n)]["alvo"] = v["alvo"]
-    placar_cfg = {"sets_cfg": sets_cfg, "antes_saque": antes, "fim_ref": "saque" if c.get("fim_ref") == "saque" else "queda", "ativo": bool(c.get("ativo")), "nome_a": str(c.get("nome_a") or "Dupla A")[:24],
+    placar_cfg = {"sets_cfg": sets_cfg, "antes_saque": antes, "fim_ref": "saque" if c.get("fim_ref") == "saque" else "queda",
+                  "corte": "queda" if c.get("corte") == "queda" else "saque", "ativo": bool(c.get("ativo")), "nome_a": str(c.get("nome_a") or "Dupla A")[:24],
                   "nome_b": str(c.get("nome_b") or "Dupla B")[:24], "perto": "B" if c.get("perto") == "B" else "A",
                   "ini_a": max(0, min(99, int(c.get("ini_a") or 0))), "ini_b": max(0, min(99, int(c.get("ini_b") or 0))),
                   "set": max(1, min(3, int(c.get("set") or 1))),
