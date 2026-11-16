@@ -893,10 +893,11 @@ function calcularPlacar(){
   const ult = ativos[ativos.length - 1];
   if (ult && ult._pl){
     ult._ultimo = true;
-    // último rally do vídeo: não há saque depois dele. Pela regra "o ponto é de quem está sacando",
-    // o ponto vai para quem sacou este rally (dá para trocar com um clique).
-    const pf = (ult.ponto_final === 'A' || ult.ponto_final === 'B') ? ult.ponto_final : ult._sacou;
-    ult._pontoFinalAuto = !(ult.ponto_final === 'A' || ult.ponto_final === 'B');
+    // último rally do vídeo: não há saque depois dele. O ponto só é marcado quando acontece a ação de saque
+    // seguinte (ex.: saque para fora = ponto da outra dupla, confirmado quando ela saca). Sem esse saque no
+    // vídeo, o ponto fica em aberto até você marcar quem fez.
+    const pf = (ult.ponto_final === 'A' || ult.ponto_final === 'B') ? ult.ponto_final : null;
+    ult._pontoFinalAuto = false;
     ult._pontoFinal = pf;
     if (pf === 'A' || pf === 'B'){
       if (pf === 'A') a++; else b++;
@@ -957,7 +958,7 @@ function celulaPlacar(s, i){
                (s._troca ? `<span class="hint" title="as duplas trocaram de lado antes deste saque">⇄ troca de lado</span><br>` : '');
   const pt = s._ponto ? ` <span class="hint" title="ponto creditado neste saque">+1 ${s._ponto}</span>` : '';
   const pfv = s._pontoFinal;
-  const ultimo = s._ultimo ? `<br><span class="hint">último ponto:</span> <button class="venc ${pfv ? pfv + (s._pontoFinalAuto ? ' auto' : '') : 'nd'}" title="Não há saque depois deste rally: o ponto vai para quem sacou. Clique para trocar." onclick="trocarPontoFinal(${i})">${pfv ? esc((pfv==='A'?plCfg.nome_a:plCfg.nome_b).slice(0,10)) : '?'}</button>${p.final ? ` <span class="plc">→ ${p.final.a}×${p.final.b}</span>` : ''}${s._trocaDepois ? ' <span class="hint">⇄</span>' : ''}` : '';
+  const ultimo = s._ultimo ? `<br><span class="hint">último ponto:</span> <button class="venc ${pfv ? pfv + (s._pontoFinalAuto ? ' auto' : '') : 'nd'}" title="Não há saque depois deste rally no vídeo, então o ponto fica em aberto. Clique para marcar quem fez (saque para fora = ponto da outra dupla)." onclick="trocarPontoFinal(${i})">${pfv ? esc((pfv==='A'?plCfg.nome_a:plCfg.nome_b).slice(0,10)) : '?'}</button>${p.final ? ` <span class="plc">→ ${p.final.a}×${p.final.b}</span>` : ''}${s._trocaDepois ? ' <span class="hint">⇄</span>' : ''}` : '';
   const ed = s.placar_manual ? ' manual' : '';
   const campos = `<span class="plc pled${ed}" title="${s.placar_manual ? 'Placar corrigido por você' : 'Clique para corrigir o placar'} — os rallys seguintes continuam a partir dele"><span class="plt"><label class="tA" title="${esc(plCfg.nome_a)}">${rot('A')}</label><input type="number" min="0" max="99" value="${p.a}" onchange="editarPlacar(${i},'a',this.value)"></span><span class="plx">×</span><span class="plt"><label class="tB" title="${esc(plCfg.nome_b)}">${rot('B')}</label><input type="number" min="0" max="99" value="${p.b}" onchange="editarPlacar(${i},'b',this.value)"></span></span>${s.placar_manual ? ` <button class="ghost mini" title="Voltar ao placar automático" onclick="editarPlacar(${i},null)">↺</button>` : ''}`;
   return `${selo}${campos}${pt}${ultimo}<br><span class="hint">🏐</span> <button class="venc ${cls}" title="${dica}" onclick="trocarSacador(${i})">${nome.length>10?esc(nome.slice(0,9))+'…':esc(nome)}</button>`;
@@ -978,8 +979,9 @@ function editarPlacar(i, t, v){
 }
 function trocarPontoFinal(i){
   const s = segs[i];
-  // automático (quem sacou) -> o outro time -> volta ao automático
-  s.ponto_final = s.ponto_final ? null : outra(s._pontoFinal || 'A');
+  // em aberto -> a dupla que NÃO sacou (saque para fora / erro) -> a dupla que sacou -> em aberto
+  const sacou = s._sacou || 'A';
+  s.ponto_final = !s.ponto_final ? outra(sacou) : s.ponto_final === outra(sacou) ? sacou : null;
   renderSegs();
 }
 function removerSeg(i){
