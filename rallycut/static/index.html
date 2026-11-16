@@ -583,6 +583,7 @@ async function abrir(id, silencioso){
   _limiar = undefined;
   atual = job; segs = job.segmentos.map(s=>({...s, ativo: s.ativo!==false}));
   removidos = (job.removidos || []).map(s=>({...s}));
+  restaurarEngolidos();
   $('#review').style.display='block'; $('#rvTitle').textContent = job.nome;
   if (!silencioso) player.src = `/api/jobs/${id}/video`;
   $('#baixar').style.display='none'; $('#exp').style.display='none';
@@ -1142,6 +1143,30 @@ function saqueSuspeito(){
     const antes = faixa(t - 2.5, t - 0.3); return antes.length >= 5 && med(antes) > limite; };
 }
 const temSaque = s => !!s.sacador || s.lanc != null || ['lancamento', 'rede', 'recepcao', 'fora'].includes(s.saque_ref);
+// Pontos que a análise achou (com saque) mas que uma versão antiga das regras juntou dentro de outro rally:
+// volta com eles, e com os trechos "jogadores em movimento" daquele intervalo, para as regras atuais decidirem.
+function restaurarEngolidos(){
+  if (!analise || !analise.segmentos) return;
+  const perto = (a, b) => a != null && b != null && Math.abs(a - b) < 0.05;
+  const existe = a => segs.concat(removidos).some(s => (a.saque_t != null && perto(s.saque_t, a.saque_t)) || perto(s.ini, a.ini));
+  let n = 0;
+  for (const a of analise.segmentos){
+    if (existe(a)) continue;
+    const dono = segs.find(s => s.ativo && !s.fim_manual && !s.ini_manual && s.ini < a.ini && a.ini < s.fim);
+    if (!dono) continue;
+    if (a.ativo && a.saque_t != null){ segs.push({...a}); n++; }
+    else if (!a.ativo && a.revisar) segs.push({...a});
+    // o rally que tinha engolido volta ao fim que a ANÁLISE mostrou (a bola dele, não a do ponto engolido)
+    if (a.ativo){
+      const orig = analise.segmentos.find(o => o.ativo && dono.saque_t != null && perto(o.saque_t, dono.saque_t));
+      if (orig){ dono.voo_fim = orig.voo_fim; dono.fim = orig.fim; dono.fim_status = orig.fim_status; dono.fim_motivo = orig.fim_motivo; delete dono.fim_mov; }
+      else if (dono.voo_fim != null) dono.fim = Math.min(dono.fim, Math.max(dono.voo_fim + 0.7, dono.ini + 1));
+      delete dono._fimDet;
+    }
+  }
+  if (n){ segs.sort((x, y) => x.ini - y.ini);
+    setTimeout(() => toast(n > 1 ? `${n} pontos que estavam juntos de outro rally foram separados de novo` : '1 ponto que estava junto de outro rally foi separado de novo'), 300); }
+}
 function aplicarCortes(){
   aplicarAntesSaque();
   segs.sort((a,b)=>a.ini-b.ini);
@@ -1153,17 +1178,24 @@ function aplicarCortes(){
   // trecho sem saque até SAIU_DO_QUADRO s depois do anterior é continuação; mais longe que isso, depois de uma
   // pausa, é um ponto novo cujo saque não apareceu (começa no passe / na 1ª bola vista)
   const juntaAte = SAIU_DO_QUADRO;
+  // distâncias medidas a partir do FIM DA BOLA do rally anterior (onde a bola foi vista pela última vez),
+  // nunca a partir de um fim já esticado por "jogadores em movimento" — senão as junções viram uma cadeia
+  const fimBola = x => x.voo_fim != null ? x.voo_fim + 0.7 : x.fim;
   for (const s of segs){
     const ant = [...novos].reverse().find(x => x.ativo);
     // jogadores ainda em movimento logo depois do rally (bola não vista) = a jogada continuou: entra no rally
-    if (!s.ativo && s.revisar && !s.ativo_manual && ant && s.ini - ant.fim <= juntaAte){
-      ant.fim = Math.max(ant.fim, s.fim); ant.voo_fim = Math.max(ant.voo_fim || 0, s.fim - 1.0);
+    if (!s.ativo && s.revisar && !s.ativo_manual && ant && s.ini - fimBola(ant) <= juntaAte){
+      ant.fim_mov = Math.max(ant.fim_mov || 0, s.fim); ant.fim = Math.max(ant.fim, s.fim);
       delete ant._fimDet; continue;
     }
     if (s.ativo && ant){
+      // saque com o lançamento VISTO e bem depois da bola cair no rally anterior = ponto novo, sempre
+      const tSaque = s.lanc != null ? s.lanc : s.saque_t;
+      const saqueClaro = s.saque_ref === 'lancamento' && s.lanc != null && ant.voo_fim != null && s.lanc - ant.voo_fim >= 4;
       // "saque" com os jogadores correndo antes = ataque/defesa no meio da jogada: não corta, junta ao anterior
-      const semSaque = (!temSaque(s) || (suspeito(s) && !s.sacador)) && s.ini - ant.fim <= juntaAte;
-      const colado = !s.sacador && s.ini - ant.fim <= 1.5;
+      const semSaque = !saqueClaro && (!temSaque(s) || (suspeito(s) && !s.sacador))
+                       && (tSaque != null ? tSaque : s.ini) - fimBola(ant) <= juntaAte;
+      const colado = !s.sacador && !saqueClaro && s.ini - fimBola(ant) <= 1.5;
       if (semSaque || colado){
         ant.fim = Math.max(ant.fim, s.fim); if (s.voo_fim != null) ant.voo_fim = Math.max(ant.voo_fim || 0, s.voo_fim);
         if (s.fim_status){ ant.fim_status = s.fim_status; ant.fim_motivo = s.fim_motivo; ant.queda_bola = s.queda_bola; }
@@ -1183,7 +1215,7 @@ function aplicarCortes(){
   if (plCfg.fim_ref !== 'saque'){
     // fim do rally = quando a bola cai (+0,7 s)
     segs.forEach(s => { if (!s.fim_manual && s.voo_fim != null){
-      const f = Math.round(Math.max((s.saque_t != null ? s.saque_t : s.ini) + 0.5, s.voo_fim + 0.7) * 100) / 100;
+      const f = Math.round(Math.max((s.saque_t != null ? s.saque_t : s.ini) + 0.5, s.voo_fim + 0.7, s.fim_mov || 0) * 100) / 100;
       if (Math.abs(f - s.fim) > 0.05) s.fim = f; } });
     return;
   }
@@ -1195,7 +1227,7 @@ function aplicarCortes(){
   ativos.forEach((s, k) => {
     if (s.fim_manual) return;
     // fim detectado: a bola caiu (+ até 3 s para os jogadores pararem)
-    if (s._fimDet == null) s._fimDet = s.voo_fim != null ? Math.min(s.fim, s.voo_fim + 3.0) : s.fim;
+    if (s._fimDet == null) s._fimDet = Math.max(s.voo_fim != null ? Math.min(s.fim, s.voo_fim + 3.0) : s.fim, s.fim_mov || 0);
     const prox = ativos[k + 1];
     const limite = prox ? inicioDoSaque(prox) - 1.0 : analise.duracao;
     const minimo = (s.saque_t != null ? s.saque_t : s.ini) + 0.5;
@@ -1274,10 +1306,10 @@ let _tSalvar = null;
 function payload(){
   return { segmentos: segs.map(s => ({ini:s.ini, fim:s.fim, ativo:s.ativo, sacador:s.sacador||null, ponto_final:s.ponto_final||null,
                                             placar: s._pl ? {...s._pl, final_em: s._pl.final ? Math.max(0.5, s.fim - s.ini - 1.2) : null, destaque_ate: Math.max(0.5, ((s.saque_t != null && s.saque_t >= s.ini) ? s.saque_t - s.ini : 1.5) + 2.0)} : null,
-                                            lanc:s.lanc, saque_t:s.saque_t, saque_lado:s.saque_lado, saque_ref:s.saque_ref, motivo:s.motivo, obs:s.obs, ini_manual:!!s.ini_manual, fim_manual:!!s.fim_manual, ativo_manual:!!s.ativo_manual, voo_fim:s.voo_fim, queda_bola:s.queda_bola, fim_status:s.fim_status, fim_motivo:s.fim_motivo, placar_manual:s.placar_manual||null})),
+                                            lanc:s.lanc, saque_t:s.saque_t, saque_lado:s.saque_lado, saque_ref:s.saque_ref, motivo:s.motivo, obs:s.obs, ini_manual:!!s.ini_manual, fim_manual:!!s.fim_manual, ativo_manual:!!s.ativo_manual, voo_fim:s.voo_fim, fim_mov:s.fim_mov, queda_bola:s.queda_bola, fim_status:s.fim_status, fim_motivo:s.fim_motivo, placar_manual:s.placar_manual||null})),
            removidos: removidos.map(s => ({ini:s.ini, fim:s.fim, ativo:s.ativo, sacador:s.sacador||null, ponto_final:s.ponto_final||null,
                                            lanc:s.lanc, saque_t:s.saque_t, saque_lado:s.saque_lado, saque_ref:s.saque_ref, motivo:s.motivo, obs:s.obs,
-                                           ini_manual:!!s.ini_manual, fim_manual:!!s.fim_manual, voo_fim:s.voo_fim, queda_bola:s.queda_bola, fim_status:s.fim_status, fim_motivo:s.fim_motivo, placar_manual:s.placar_manual||null})),
+                                           ini_manual:!!s.ini_manual, fim_manual:!!s.fim_manual, voo_fim:s.voo_fim, fim_mov:s.fim_mov, queda_bola:s.queda_bola, fim_status:s.fim_status, fim_motivo:s.fim_motivo, placar_manual:s.placar_manual||null})),
            audio: {volume:+$('#vol').value/100, vento:$('#vento').checked},
            formato: {proporcao:formato.proporcao, modo:formato.modo, pos:formato.pos},
            placar_cfg: plCfg };
